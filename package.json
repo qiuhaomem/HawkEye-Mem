@@ -1,0 +1,26 @@
+{
+  "name": "@qiuhaomem/cli",
+  "version": "0.1.0",
+  "description": "AI-Native 内存监控 CLI 工具 — 内存洞察，秋毫不放",
+  "bin": {
+    "qiuhao": "./bin/qiuhao"
+  },
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified yet\" && exit 0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": ["memory", "monitor", "ai-agent", "llm", "cli"],
+  "author": "qiuhaomem",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qiuhaomem/HawkEye-Mem.git"
+  },
+  "bugs": {
+    "url": "https://github.com/qiuhaomem/HawkEye-Mem/issues"
+  },
+  "homepage": "https://qiuhao.dev"
+}
