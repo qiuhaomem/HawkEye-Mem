@@ -1,7 +1,6 @@
 use std::process::Command;
 use std::path::PathBuf;
 use std::time::Duration;
-use std::thread;
 
 /// 获取编译后的二进制路径
 fn binary_path() -> PathBuf {
@@ -299,18 +298,13 @@ fn test_it_int_001_config_lifecycle() {
 
 // ===================== 首次运行引导验证 (IT-FIRST) =====================
 
-/// 获取.onboarded文件路径
-fn onboarded_path() -> std::path::PathBuf {
-    let home = dirs_next::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/tmp"));
-    home.join(".config/hawk-eye-mem/.onboarded")
-}
-
 /// 测试首次运行全流程：免责声明 + 顺序 + 再次运行不显示
 /// 合并IT-FIRST-001/002/003为单测试，使用独立HOME避免并行竞争
 #[test]
 fn test_it_first_onboarding_full() {
-    // 创建临时HOME，避免与其他测试共享.onboarded文件
+    // 创建临时HOME，先清理可能残留的上次运行文件
     let tmp_home = std::env::temp_dir().join("hawkeye_test_first_run");
+    let _ = std::fs::remove_dir_all(&tmp_home);
     let _ = std::fs::create_dir_all(&tmp_home);
     let old_home = std::env::var("HOME").ok();
     std::env::set_var("HOME", tmp_home.to_str().unwrap());
