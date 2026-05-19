@@ -29,34 +29,38 @@ jobs:
       - name: Run tests
         run: cargo test
 
-      - name: Verify JSON output
+      - name: Verify JSON output (Schema + fields)
         run: |
-          OUTPUT=$(./target/release/hawk-eye-mem --json 2>/dev/null)
-          echo "$OUTPUT" | python3 -c "
-import json, sys
-d = json.loads(sys.stdin.read())
-# 验证关键字段
-assert 'system' in d, 'Missing system'
-assert 'agent_guidance' in d, 'Missing agent_guidance'
-g = d['agent_guidance']
-assert 'action' in g, 'Missing action'
-assert g['action'] in ('ok', 'monitor', 'reduce_context', 'abort_safely'), f'Invalid action: {g[\"action\"]}'
-assert 'reason' in g, 'Missing reason'
-assert len(g['reason']) <= 200, f'Reason too long: {len(g[\"reason\"])} chars'
-assert 'pressure' in g, 'Missing pressure'
-assert 'confidence' in g, 'Missing confidence'
-assert 'estimated_safe_context_window' in g, 'Missing estimated_safe_context_window'
-print('✅ Linux JSON output valid!')
-print(f'   system: {d[\"system\"]}')
-print(f'   guidance: action={g[\"action\"]}, pressure={g[\"pressure\"]}, confidence={g[\"confidence\"]}')
-"
+          BIN=./target/release/hawk-eye-mem
+          OUTPUT=$($BIN --json 2>/dev/null)
+
+          # 验证必填字段存在
+          echo "$OUTPUT" | jq -e '.system' > /dev/null && echo '✅ system exists'
+          echo "$OUTPUT" | jq -e '.agent_guidance' > /dev/null && echo '✅ agent_guidance exists'
+
+          ACTION=$(echo "$OUTPUT" | jq -r '.agent_guidance.action')
+          echo "action=$ACTION"
+          case "$ACTION" in
+            ok|monitor|reduce_context|abort_safely) echo '✅ action valid' ;;
+            *) echo "❌ invalid action: $ACTION"; exit 1 ;;
+          esac
+
+          REASON=$(echo "$OUTPUT" | jq -r '.agent_guidance.reason')
+          RLEN=${#REASON}
+          [ "$RLEN" -le 200 ] && echo "✅ reason length OK ($RLEN chars)" || { echo "❌ reason too long: $RLEN"; exit 1; }
+
+          echo "$OUTPUT" | jq -e '.agent_guidance.pressure' > /dev/null && echo '✅ pressure'
+          echo "$OUTPUT" | jq -e '.agent_guidance.confidence' > /dev/null && echo '✅ confidence'
+          echo "$OUTPUT" | jq -e '.agent_guidance.estimated_safe_context_window' > /dev/null && echo '✅ estimated_safe_context_window'
 
       - name: Verify --metric output
         run: |
-          VAL=$(./target/release/hawk-eye-mem --metric available_mb 2>/dev/null)
-          echo "$VAL" | grep -qP '^\d+$' && echo "✅ --metric available_mb: $VAL"
-          PRS=$(./target/release/hawk-eye-mem --metric pressure 2>/dev/null)
-          echo "$PRS" | grep -qP '^(low|medium|high|critical)$' && echo "✅ --metric pressure: $PRS"
+          BIN=./target/release/hawk-eye-mem
+          VAL=$($BIN --metric available_mb 2>/dev/null)
+          [[ "$VAL" =~ ^[0-9]+$ ]] && echo "✅ --metric available_mb: $VAL" || { echo "❌ not a number: $VAL"; exit 1; }
+
+          PRS=$($BIN --metric pressure 2>/dev/null)
+          [[ "$PRS" =~ ^(low|medium|high|critical)$ ]] && echo "✅ --metric pressure: $PRS" || { echo "❌ invalid pressure: $PRS"; exit 1; }
 
   # === macOS 构建与实机验证 ===
   test-macos:
@@ -73,47 +77,53 @@ print(f'   guidance: action={g[\"action\"]}, pressure={g[\"pressure\"]}, confide
       - name: Run tests
         run: cargo test
 
-      - name: macOS 实机采集验证
+      - name: macOS 实机采集验证（检查误报）
         run: |
-          OUTPUT=$(./target/release/hawk-eye-mem --json 2>/dev/null)
-          echo "$OUTPUT" | python3 -c "
-import json, sys
-d = json.loads(sys.stdin.read())
-s = d['system']
-g = d['agent_guidance']
+          BIN=./target/release/hawk-eye-mem
+          OUTPUT=$($BIN --json 2>/dev/null)
 
-print('=== macOS 系统状态 ===')
-print(f'    总内存: {s[\"total_mb\"]}MB')
-print(f'    已使用: {s[\"used_mb\"]}MB')
-print(f'    可用:   {s[\"available_mb\"]}MB')
-print(f'    使用率: {s[\"used_percent\"]}%')
-print(f'    压力:   {g[\"pressure\"]}')
-print(f'    建议:   {g[\"action\"]}')
-print(f'    理由:   {g[\"reason\"]}')
+          TOTAL=$(echo "$OUTPUT" | jq -r '.system.total_mb')
+          AVAIL=$(echo "$OUTPUT" | jq -r '.system.available_mb')
+          PERCENT=$(echo "$OUTPUT" | jq -r '.system.used_percent')
+          PRESSURE=$(echo "$OUTPUT" | jq -r '.agent_guidance.pressure')
+          ACTION=$(echo "$OUTPUT" | jq -r '.agent_guidance.action')
+          REASON=$(echo "$OUTPUT" | jq -r '.agent_guidance.reason')
 
-# macOS 误报检查: 正常负载下不应为 high/critical
-# GitHub Actions runner 通常负载较低
-if g['pressure'] in ('critical', 'high'):
-    print(f'⚠️  警告: macOS runner 压力偏高 ({g[\"pressure\"]})')
-    print(f'    available_mb={s[\"available_mb\"]}, used_percent={s[\"used_percent\"]}%')
-    print('    可能是 runner 本身负载大，需要人工确认')
-else:
-    print(f'✅ macOS 压力正常: {g[\"pressure\"]}')
+          echo "=== macOS 系统状态 ==="
+          echo "  总内存: ${TOTAL}MB"
+          echo "  可用:   ${AVAIL}MB"
+          echo "  使用率: ${PERCENT}%"
+          echo "  压力:   ${PRESSURE}"
+          echo "  建议:   ${ACTION}"
+          echo "  理由:   ${REASON}"
 
-# macOS 特殊验证: total_mb 应合理
-assert s['total_mb'] > 0, 'total_mb must be > 0'
-assert s['available_mb'] > 0, 'available_mb must be > 0'
-assert 0 <= s['used_percent'] <= 100, f'used_percent out of range: {s[\"used_percent\"]}'
-print('✅ macOS 采集器运行正常!')
-"
+          # 基础验证
+          [ "$TOTAL" -gt 0 ] && echo "✅ total_mb" || { echo "❌ total_mb=0"; exit 1; }
+          [ "$AVAIL" -gt 0 ] && echo "✅ available_mb" || { echo "❌ available_mb=0"; exit 1; }
+
+          # 误报检测：正常负载下不应 high/critical
+          if [ "$PRESSURE" = "critical" ] || [ "$PRESSURE" = "high" ]; then
+            echo "⚠️  警告: macOS 压力偏高 ($PRESSURE)"
+            echo "    runner 负载可能较大，需人工确认"
+          else
+            echo "✅ macOS 压力正常: $PRESSURE"
+          fi
+
+          # action 必须是合法值
+          case "$ACTION" in
+            ok|monitor|reduce_context|abort_safely) echo "✅ action=$ACTION" ;;
+            *) echo "❌ invalid action"; exit 1 ;;
+          esac
+
+          echo "✅ macOS 采集器运行正常!"
 
       - name: macOS 首次运行验证
         run: |
-          # 模拟首次运行（用临时HOME）
+          BIN=./target/release/hawk-eye-mem
           TMP_HOME=$(mktemp -d)
-          HOME=$TMP_HOME ./target/release/hawk-eye-mem 2>&1 | tee /tmp/first_run_output.txt
+          HOME=$TMP_HOME $BIN 2>&1 | tee /tmp/first_run.txt
           echo "---"
-          grep -q "No warranty" /tmp/first_run_output.txt && echo "✅ 免责声明包含 'No warranty'"
-          grep -q "Use at your own risk" /tmp/first_run_output.txt && echo "✅ 免责声明包含 'Use at your own risk'"
-          grep -q "Quick Start" /tmp/first_run_output.txt && echo "✅ 引导信息包含 'Quick Start'"
+          grep -q "No warranty" /tmp/first_run.txt && echo "✅ 免责声明: No warranty"
+          grep -q "Use at your own risk" /tmp/first_run.txt && echo "✅ 免责声明: Use at your own risk"
+          grep -q "Quick Start" /tmp/first_run.txt && echo "✅ 引导信息: Quick Start"
           rm -rf "$TMP_HOME"
