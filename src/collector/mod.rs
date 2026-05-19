@@ -15,8 +15,10 @@ pub struct MemoryMetrics {
 #[derive(Debug, Error)]
 pub enum CollectError {
     #[error("Permission denied: {0}")]
+    #[allow(dead_code)]
     PermissionDenied(String),
     #[error("Unsupported platform")]
+    #[allow(dead_code)]
     UnsupportedPlatform,
     #[error("Failed to read memory info: {0}")]
     ReadFailed(String),

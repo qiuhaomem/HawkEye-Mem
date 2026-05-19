@@ -3,7 +3,11 @@ mod config;
 mod engine;
 
 use clap::Parser;
-use collector::{linux::LinuxCollector, macos::MacosCollector, MemoryCollector};
+#[cfg(target_os = "linux")]
+use collector::linux::LinuxCollector;
+#[cfg(target_os = "macos")]
+use collector::macos::MacosCollector;
+use collector::MemoryCollector;
 use std::path::PathBuf;
 
 #[derive(Parser)]

@@ -1,8 +1,10 @@
 use super::{CollectError, MemoryCollector, MemoryMetrics};
 use std::fs;
 
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 pub struct LinuxCollector;
 
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 impl MemoryCollector for LinuxCollector {
     fn collect(&self) -> Result<MemoryMetrics, CollectError> {
         let content = fs::read_to_string("/proc/meminfo")
@@ -41,6 +43,7 @@ impl MemoryCollector for LinuxCollector {
     }
 }
 
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 fn parse_meminfo_line(line: &str, prefix: &str) -> Option<u64> {
     if line.starts_with(prefix) {
         let parts: Vec<&str> = line.split_whitespace().collect();

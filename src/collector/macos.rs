@@ -1,8 +1,10 @@
 use super::{CollectError, MemoryCollector, MemoryMetrics};
 use std::process::Command;
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub struct MacosCollector;
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 impl MemoryCollector for MacosCollector {
     fn collect(&self) -> Result<MemoryMetrics, CollectError> {
         let vm_stat = Command::new("vm_stat")
