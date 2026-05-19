@@ -8,3 +8,6 @@ target/
 # Added by cargo
 
 /target
+
+# Local dev environment (sysroot linker)
+.cargo/
