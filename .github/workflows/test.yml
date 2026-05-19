@@ -1,0 +1,119 @@
+# 秋毫mem · CI 验证工作流
+# 跨平台构建 + 测试 + macOS 实机采集验证
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # === Linux 构建与测试 ===
+  test-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: x86_64-unknown-linux-musl
+
+      - name: Build (musl static)
+        run: cargo build --release --target x86_64-unknown-linux-musl
+
+      - name: Run tests
+        run: cargo test
+
+      - name: Verify JSON output
+        run: |
+          OUTPUT=$(./target/release/hawk-eye-mem --json 2>/dev/null)
+          echo "$OUTPUT" | python3 -c "
+import json, sys
+d = json.loads(sys.stdin.read())
+# 验证关键字段
+assert 'system' in d, 'Missing system'
+assert 'agent_guidance' in d, 'Missing agent_guidance'
+g = d['agent_guidance']
+assert 'action' in g, 'Missing action'
+assert g['action'] in ('ok', 'monitor', 'reduce_context', 'abort_safely'), f'Invalid action: {g[\"action\"]}'
+assert 'reason' in g, 'Missing reason'
+assert len(g['reason']) <= 200, f'Reason too long: {len(g[\"reason\"])} chars'
+assert 'pressure' in g, 'Missing pressure'
+assert 'confidence' in g, 'Missing confidence'
+assert 'estimated_safe_context_window' in g, 'Missing estimated_safe_context_window'
+print('✅ Linux JSON output valid!')
+print(f'   system: {d[\"system\"]}')
+print(f'   guidance: action={g[\"action\"]}, pressure={g[\"pressure\"]}, confidence={g[\"confidence\"]}')
+"
+
+      - name: Verify --metric output
+        run: |
+          VAL=$(./target/release/hawk-eye-mem --metric available_mb 2>/dev/null)
+          echo "$VAL" | grep -qP '^\d+$' && echo "✅ --metric available_mb: $VAL"
+          PRS=$(./target/release/hawk-eye-mem --metric pressure 2>/dev/null)
+          echo "$PRS" | grep -qP '^(low|medium|high|critical)$' && echo "✅ --metric pressure: $PRS"
+
+  # === macOS 构建与实机验证 ===
+  test-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Run tests
+        run: cargo test
+
+      - name: macOS 实机采集验证
+        run: |
+          OUTPUT=$(./target/release/hawk-eye-mem --json 2>/dev/null)
+          echo "$OUTPUT" | python3 -c "
+import json, sys
+d = json.loads(sys.stdin.read())
+s = d['system']
+g = d['agent_guidance']
+
+print('=== macOS 系统状态 ===')
+print(f'    总内存: {s[\"total_mb\"]}MB')
+print(f'    已使用: {s[\"used_mb\"]}MB')
+print(f'    可用:   {s[\"available_mb\"]}MB')
+print(f'    使用率: {s[\"used_percent\"]}%')
+print(f'    压力:   {g[\"pressure\"]}')
+print(f'    建议:   {g[\"action\"]}')
+print(f'    理由:   {g[\"reason\"]}')
+
+# macOS 误报检查: 正常负载下不应为 high/critical
+# GitHub Actions runner 通常负载较低
+if g['pressure'] in ('critical', 'high'):
+    print(f'⚠️  警告: macOS runner 压力偏高 ({g[\"pressure\"]})')
+    print(f'    available_mb={s[\"available_mb\"]}, used_percent={s[\"used_percent\"]}%')
+    print('    可能是 runner 本身负载大，需要人工确认')
+else:
+    print(f'✅ macOS 压力正常: {g[\"pressure\"]}')
+
+# macOS 特殊验证: total_mb 应合理
+assert s['total_mb'] > 0, 'total_mb must be > 0'
+assert s['available_mb'] > 0, 'available_mb must be > 0'
+assert 0 <= s['used_percent'] <= 100, f'used_percent out of range: {s[\"used_percent\"]}'
+print('✅ macOS 采集器运行正常!')
+"
+
+      - name: macOS 首次运行验证
+        run: |
+          # 模拟首次运行（用临时HOME）
+          TMP_HOME=$(mktemp -d)
+          HOME=$TMP_HOME ./target/release/hawk-eye-mem 2>&1 | tee /tmp/first_run_output.txt
+          echo "---"
+          grep -q "No warranty" /tmp/first_run_output.txt && echo "✅ 免责声明包含 'No warranty'"
+          grep -q "Use at your own risk" /tmp/first_run_output.txt && echo "✅ 免责声明包含 'Use at your own risk'"
+          grep -q "Quick Start" /tmp/first_run_output.txt && echo "✅ 引导信息包含 'Quick Start'"
+          rm -rf "$TMP_HOME"
