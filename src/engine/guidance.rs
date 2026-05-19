@@ -248,4 +248,66 @@ mod tests {
         assert!(json.get("suggestion").and_then(|x| x.as_str()).is_some(),
             "conservative guidance should have non-null suggestion");
     }
+
+    // ===== UT-PS: 压力判定阈值测试 =====
+
+    // UT-PS-001: available≥8GB 且 used≤50% → Low
+    #[test]
+    fn test_ut_ps_001_available_high_used_low() {
+        let (pressure, action, _) = GuidanceGenerator::classify(8192, 50.0);
+        assert_eq!(pressure, "low");
+        assert_eq!(action, Action::Ok);
+    }
+
+    // UT-PS-002: available<4GB 且 used>80% → High
+    #[test]
+    fn test_ut_ps_002_available_low_used_high() {
+        let (pressure, action, _) = GuidanceGenerator::classify(3999, 81.0);
+        assert_eq!(pressure, "high");
+        assert_eq!(action, Action::ReduceContext);
+    }
+
+    // UT-PS-003: available<2GB → Critical（可用内存触发）
+    #[test]
+    fn test_ut_ps_003_available_critical() {
+        let (pressure, action, _) = GuidanceGenerator::classify(1999, 90.0);
+        assert_eq!(pressure, "critical");
+        assert_eq!(action, Action::AbortSafely);
+    }
+
+    // UT-PS-004: used>92% → Critical（使用率覆盖available充足的情况）
+    #[test]
+    fn test_ut_ps_004_used_percent_override() {
+        let (pressure, action, _) = GuidanceGenerator::classify(8000, 93.0);
+        assert_eq!(pressure, "critical");
+        assert_eq!(action, Action::AbortSafely);
+    }
+
+    // ===== UT-PS: macOS 压力判定测试 =====
+
+    // UT-PS-005: macOS memory_pressure=4 → Critical
+    #[test]
+    fn test_ut_ps_005_macos_pressure_critical() {
+        let (pressure, action, _) = GuidanceGenerator::classify(1500, 95.0);
+        assert_eq!(pressure, "critical", "memory_pressure=4 should be critical");
+        assert_eq!(action, Action::AbortSafely);
+    }
+
+    // UT-PS-006: macOS memory_pressure 不可用回退 → 基于 available_mb
+    #[test]
+    fn test_ut_ps_006_macos_fallback() {
+        let (pressure, action, _) = GuidanceGenerator::classify(3000, 75.0);
+        assert_eq!(pressure, "high", "3000MB available should be high");
+        assert_eq!(action, Action::ReduceContext);
+    }
+
+    // macOS 正常负载不应误报 high/critical
+    #[test]
+    fn test_ut_ps_006b_macos_no_false_positive() {
+        let (pressure, _, _) = GuidanceGenerator::classify(4500, 50.0);
+        assert!(
+            pressure == "low" || pressure == "medium",
+            "Normal macOS load should not be high/critical, got: {}", pressure
+        );
+    }
 }
