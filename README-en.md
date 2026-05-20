@@ -1,3 +1,5 @@
+[English](./README-en.md) | [中文](./README.md)
+
 # HawkEye Mem (秋毫mem)
 
 **Your AI has been crunching for three hours. You get up for coffee. Come back — OOM. Dead. No checkpoint.**

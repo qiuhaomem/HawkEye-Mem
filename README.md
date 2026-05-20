@@ -1,3 +1,5 @@
+[English](./README-en.md) | [中文](./README.md)
+
 # 秋毫mem (HawkEye Mem)
 
 **你的电脑跑着 AI 程序，跑了三个小时，你走开倒了杯水，回来一看——崩了。内存挤爆了。**
