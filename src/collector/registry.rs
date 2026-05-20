@@ -1,6 +1,7 @@
 use super::{CollectorOutput, ResourceCollector, ResourceSnapshot};
 use super::disk::DiskCollector;
 use super::cpu::CpuCollector;
+use super::gpu::GpuCollector;
 
 /// 采集器注册中心：管理所有启用的 Collector
 /// 每个 Collector 返回独立结果，Registry 负责组装成 ResourceSnapshot（CR-01）
@@ -43,6 +44,8 @@ impl CollectorRegistry {
 
         // CpuCollector 无状态，注册一次即可
         self.register(Box::new(CpuCollector));
+        // GpuCollector 总被注册（无 GPU 时静默跳过，返回 ResourceNotAvailable）
+        self.register(Box::new(GpuCollector));
         // DiskCollector 路径动态，在 collect_all 中动态创建
     }
 

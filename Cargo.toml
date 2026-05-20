@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 description = "AI-Native memory monitoring CLI — let your Agent feel the RAM"
 
+[features]
+default = []
+gpu = ["nvml-wrapper"]
+
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
@@ -16,6 +20,7 @@ toml = "0.8"
 dirs-next = "2"
 num_cpus = "1"
 libc = "0.2"
+nvml-wrapper = { version = "0.9", optional = true }
 
 [dev-dependencies]
 tempfile = "3"

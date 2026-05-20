@@ -3,6 +3,7 @@ pub mod macos;
 pub mod registry;
 pub mod disk;
 pub mod cpu;
+pub mod gpu;
 
 use thiserror::Error;
 use serde::Serialize;
@@ -160,6 +161,7 @@ pub enum CollectError {
 // ============================================================================
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub enum CollectorOutput {
     Memory(MemoryMetrics),
     Disk(DiskMetrics),

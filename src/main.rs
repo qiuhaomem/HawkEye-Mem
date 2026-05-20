@@ -383,6 +383,9 @@ fn build_json_output(
     if let Some(ref cpu) = snapshot.cpu {
         system["cpu"] = serde_json::to_value(cpu).unwrap();
     }
+    if let Some(ref gpu) = snapshot.gpu {
+        system["gpu"] = serde_json::to_value(gpu).unwrap();
+    }
 
     serde_json::json!({
         "timestamp": snapshot.timestamp,
