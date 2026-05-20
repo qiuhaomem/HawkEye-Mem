@@ -9,6 +9,18 @@ use collector::linux::LinuxCollector;
 use collector::macos::MacosCollector;
 use collector::MemoryCollector;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
+const DEFAULT_CONFIG_CONTENT: &str = r#"[model]
+# Bytes per token for your model (default: 2048)
+# Common values: 2048 (standard), 4096 (deepseek), 1536 (llama)
+bytes_per_token = 2048
+
+# Safety margin percentage (default: 30.0)
+# Higher = more conservative context window estimate
+margin = 30.0
+"#;
 
 #[derive(Parser)]
 #[command(name = "hawk-eye-mem", version = "0.1.0", about = "AI-Native memory monitoring")]
@@ -23,6 +35,8 @@ struct Cli {
     interval: Option<u64>,
     #[arg(long)]
     count: Option<u64>,
+    #[arg(long, conflicts_with_all = &["json", "metric"])]
+    init_config: bool,
 }
 
 fn main() {
@@ -39,6 +53,26 @@ fn main() {
         let _ = std::fs::write(&onboarded_path, b"onboarded");
     }
 
+    // 处理 --init-config：生成默认配置文件后退出
+    if cli.init_config {
+        let config_path = dirs_next::home_dir()
+            .unwrap_or_else(|| PathBuf::from("/tmp"))
+            .join(".config/hawk-eye-mem/config.toml");
+        if config_path.exists() {
+            eprintln!("Config already exists at {}", config_path.display());
+            std::process::exit(0);
+        }
+        if let Some(parent) = config_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        std::fs::write(&config_path, DEFAULT_CONFIG_CONTENT).unwrap_or_else(|e| {
+            eprintln!("Failed to write config: {}", e);
+            std::process::exit(1);
+        });
+        eprintln!("Default config generated at {}", config_path.display());
+        std::process::exit(0);
+    }
+
     #[cfg(target_os = "linux")]
     let collector = LinuxCollector;
     #[cfg(target_os = "macos")]
@@ -48,18 +82,37 @@ fn main() {
 
     let count = cli.count.unwrap_or(1);
     let interval = cli.interval.unwrap_or(0);
+    let infinite = count == 0 && interval > 0;
     let is_continuous = interval > 0 && count > 0;
 
-    for i in 0..count {
-        if i > 0 && interval > 0 {
-            std::thread::sleep(std::time::Duration::from_secs(interval));
+    // SIGINT handler: set an atomic flag for graceful shutdown
+    let running = Arc::new(AtomicBool::new(true));
+    let r = running.clone();
+    ctrlc::set_handler(move || {
+        r.store(false, Ordering::SeqCst);
+    }).expect("Error setting Ctrl-C handler");
+
+    let mut iter = 0u64;
+    while running.load(Ordering::SeqCst) && (infinite || iter < count) {
+        if iter > 0 && interval > 0 {
+            // Chunked sleep (100ms slices) so we stay responsive to SIGINT
+            let chunk = std::time::Duration::from_millis(100);
+            let total = std::time::Duration::from_secs(interval);
+            let mut slept = std::time::Duration::ZERO;
+            while slept < total && running.load(Ordering::SeqCst) {
+                std::thread::sleep(chunk);
+                slept += chunk;
+            }
+            if !running.load(Ordering::SeqCst) {
+                break;
+            }
         }
 
         let start = std::time::Instant::now();
         let metrics = match collector.collect() {
             Ok(m) => m,
             Err(e) => {
-                if cli.json || is_continuous {
+                if cli.json || is_continuous || infinite {
                     let err_json = serde_json::json!({ "error": e.to_string() });
                     println!("{}", serde_json::to_string(&err_json).unwrap());
                 } else {
@@ -70,7 +123,7 @@ fn main() {
         };
         let collect_duration = start.elapsed().as_secs_f64() * 1000.0;
 
-        if is_continuous && !cli.metric.is_some() {
+        if (is_continuous || infinite) && !cli.metric.is_some() {
             // JSON Lines 模式
             let app_config = load_config(&cli);
             let result = calc_estimate(&metrics, &app_config);
@@ -84,6 +137,12 @@ fn main() {
             let output = build_json_output(&metrics, &result, collect_duration);
             println!("{}", serde_json::to_string_pretty(&output).unwrap());
         }
+
+        iter += 1;
+    }
+
+    if !running.load(Ordering::SeqCst) {
+        eprintln!("Interrupted by user");
     }
 }
 
