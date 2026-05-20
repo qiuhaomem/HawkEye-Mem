@@ -1,125 +1,159 @@
-# 秋毫mem · HawkEye Mem
+# 秋毫mem (HawkEye Mem)
 
-> **内存洞察，秋毫不放。**  
-> Memory Insight, Nothing Escapes.
+**你的电脑跑着 AI 程序，跑了三个小时，你走开倒了杯水，回来一看——崩了。内存挤爆了。**
 
-**AI-Native 的内存监控 CLI 工具**，专为本地部署的大语言模型与 AI Agent 设计。
+不是你的错，是那个 AI 程序自己不知道"快没内存了"。它闷头算，算到内存炸了，连个存档都没给你留。
 
-让 Agent 感知物理内存——知道还剩多少、能不能跑、该不该缩上下文、要不要保命退出。
+你想提前看一眼还剩多少内存？可以，敲 `free -h`，出来一坨字符。你能看懂，AI 程序看不懂。它不是人，它不知道什么叫"危险"。
 
-## 快速开始
+**秋毫mem 就是干这个的。**
 
-```bash
-# 从源码安装
-cargo install --path .
+它不是给你看的，是给你的 AI 程序看的。在内存快炸之前，它扔给 AI 程序一句话：
 
-# 或者下载预编译二进制
-# (从 GitHub Releases 页面下载对应平台版本)
+> "撑不住了，缩小上下文，赶紧存档。"
 
-# 使用
-hawk-eye-mem --json              # 完整 JSON 输出（给 Agent 用）
-hawk-eye-mem --metric available_mb  # 纯数字（给脚本用）
-hawk-eye-mem --help              # 看全部参数
-```
+AI 程序拿到这句话，就知道自己该怎么做了。
 
-## Hermes Agent 集成
-
-让 Hermes 能调用秋毫mem 感知内存：
-
-### 1. 安装二进制
-
-```bash
-# 编译安装
-cargo install --path .
-
-# 或者下载预编译包后：
-sudo cp hawk-eye-mem /usr/local/bin/
-```
-
-### 2. 安装 Hermes Skill
-
-```bash
-# 从仓库安装 Skill
-mkdir -p ~/.hermes/skills/mlops/hawk-eye-mem
-cp hermes-skill.md ~/.hermes/skills/mlops/hawk-eye-mem/SKILL.md
-```
-
-### 3. 使用
-
-在 Hermes 中，秋毫mem 会在以下场景自动被调用：
-
-- **启动 LLM 推理前** — 检查可用内存是否足够
-- **长对话中** — 周期性检查内存压力，避免 OOM
-- **Agent 决策** — 根据 `agent_guidance` 字段的 `action` 值采取行动：
-  - `ok` → 继续正常操作
-  - `monitor` → 继续但要关注
-  - `reduce_context` → 缩减上下文窗口
-  - `abort_safely` → 保存状态，立即退出
-
-## 核心能力
-
-- ✅ 原生 JSON 输出，Agent 直接消费
-- ✅ `estimated_safe_context_window` 估算 + `action` 语义指令
-- ✅ 四级压力判定（low → medium → high → critical）
-- ✅ 保守/校准双模式（无配置自动保守，有配置更精确）
-- ✅ SIGINT 优雅退出，连续监控放心跑
-- ✅ 零外部依赖，单个二进制文件
-- ✅ 跨平台：Linux (`/proc/meminfo`) + macOS (`vm_stat` + `sysctl`)
-
-## CLI 参数
-
-| 参数 | 说明 |
-|------|------|
-| `--json` | 完整 JSON 输出（含 system + agent_guidance） |
-| `--metric <name>` | 极简输出：total_mb / used_mb / available_mb / used_percent / pressure |
-| `--config <path>` | 加载自定义模型配置 |
-| `--init-config` | 生成默认配置文件到 ~/.config/hawk-eye-mem/config.toml |
-| `--interval <sec>` | 连续监控间隔（秒） |
-| `--count <N>` | 采集次数（0 = 无限，需配合 --interval） |
-
-## 项目结构
-
-```
-hawk-eye-mem/
-├── Cargo.toml
-├── README.md
-├── hermes-skill.md            # Hermes Agent Skill 文件
-├── src/
-│   ├── main.rs                # CLI 入口 + SIGINT 处理
-│   ├── config.rs              # 配置加载（文件/环境变量）
-│   ├── collector/
-│   │   ├── mod.rs             # MemoryMetrics + MemoryCollector trait
-│   │   ├── linux.rs           # Linux 采集（/proc/meminfo）
-│   │   └── macos.rs           # macOS 采集（vm_stat + sysctl）
-│   └── engine/
-│       ├── mod.rs             # EstimationEngine（上下文窗口估算）
-│       └── guidance.rs        # GuidanceGenerator（压力判定 + 建议）
-├── tests/
-│   └── cli_tests.rs           # 20 个集成测试
-├── docs/                      # 完整项目文档
-│   ├── 立项建议书_v1.0.md
-│   ├── 技术方案设计书_v1.1.md
-│   └── ...（更多文档）
-└── .github/workflows/
-    └── test.yml               # CI: Linux + macOS 双平台
-```
-
-## 状态
-
-- [x] 第一阶段：调研与立项（已完成）
-- [x] 第二阶段：原型验证（已完成）
-  - [x] W1: 项目脚手架 + CLI + Linux 采集
-  - [x] W2: macOS 采集 + 估算引擎 + 建议生成器
-  - [x] W3: 全功能冻结（--init-config + SIGINT）
-  - [x] W4: Hermes Skill 集成
-- [ ] 第三阶段：发布与社区（进行中）
-- [ ] 第四阶段：生态与商业化
-
-## 开源协议
-
-Apache-2.0
+就这么简单。
 
 ---
 
-**GitHub**: github.com/qiuhaomem/-HawkEye-Mem  
-**官网**: qiuhao.dev
+## 和 `free`、`htop` 的区别，一句话说清楚
+
+那些工具是给人看的仪表盘。秋毫mem 是给 AI 程序装的传感器。
+
+你去看仪表盘，然后手动调。秋毫mem 是让 AI 程序自己感知，自己调。
+
+---
+
+## 看一眼输出你就懂了
+
+```json
+{
+  "agent_guidance": {
+    "action": "reduce_context",
+    "estimated_safe_context_window": 4096,
+    "reason": "临界：内存不足，请立即中止以避免 OOM。"
+  }
+}
+```
+
+AI 程序拿到这个，不用理解"内存"是什么，不用算百分比，它只需要看 `action` 那个字段：`reduce_context`，然后照做。
+
+---
+
+## 什么时候用它
+
+- 你在自己电脑上跑本地大模型
+- 你让 AI 程序长时间干活，不能一直盯着
+- 程序崩了几次你受不了了
+- 你想让 AI 程序自己学会"看内存脸色"
+
+装上，配好，它就在后台帮你盯着。AI 程序每次干活之前问它一句"还有内存吗"，它告诉你还能不能干、能干多大。
+
+---
+
+## 安装
+
+**从源码编译**
+
+```bash
+git clone https://github.com/qiuhaomem/-HawkEye-Mem.git
+cd -HawkEye-Mem
+cargo build --release
+sudo cp target/release/hawk-eye-mem /usr/local/bin/
+```
+
+需要先装 Rust：`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+
+**直接下载二进制（即将支持）**
+
+后面会发预编译好的包，下载解压就能用，不用装 Rust。
+
+---
+
+## 怎么用
+
+```bash
+# 给 AI 程序看（完整内存报告）
+hawk-eye-mem --json
+
+# 只看还剩多少内存
+hawk-eye-mem --metric available_mb
+
+# 看内存压力等级
+hawk-eye-mem --metric pressure
+
+# 每 5 秒查一次，采 10 次
+hawk-eye-mem --json --interval 5 --count 10
+
+# 一直盯着，按 Ctrl+C 停
+hawk-eye-mem --json --interval 5 --count 0
+```
+
+---
+
+## 怎么让你的 AI 程序用上它
+
+**如果你用 Hermes**，注册成 MCP 工具就行：
+
+```bash
+hermes mcp add hawk-eye-mem --command python3 --args scripts/hawkeye-mcp-server.py
+```
+
+注册后 AI 程序就能直接调这三个工具了：
+
+| 工具名 | 干嘛的 |
+|--------|--------|
+| `get_memory_status` | 看完整内存状态 + 建议 |
+| `get_memory_metric` | 看单个指标（总内存、已用、可用、使用率、压力） |
+| `get_memory_guidance` | 只看建议（该不该缩、安不安全） |
+
+**如果你用别的框架**：直接 `hawk-eye-mem --json`，拿到 JSON 输出，读 `agent_guidance.action` 字段，照做就行。
+
+---
+
+## 给估算调准一点（可选）
+
+秋毫mem 默认的估算是保守的，它宁可多留一些内存余量，也不会让你崩掉。如果你想让估算更精确，可以告诉它你用的是什么模型：
+
+```bash
+hawk-eye-mem --init-config
+```
+
+然后编辑 `~/.config/hawk-eye-mem/config.toml`，填上你的模型参数。
+
+不配置也没关系，默认的保守估计足够安全。
+
+---
+
+## 压力水位是什么意思
+
+| 水位 | 意思是 | AI 程序该怎么做 |
+|------|--------|----------------|
+| `low` | 内存充裕 | 放心跑 |
+| `medium` | 还行，但要注意了 | 接着跑，勤问着点 |
+| `high` | 不多了 | 缩小上下文，省着用 |
+| `critical` | 马上炸了 | 赶紧存档，别再跑了 |
+
+---
+
+## 性能
+
+不会拖慢你的系统。查一次不到 1 毫秒，二进制不到 1MB。
+
+---
+
+## 注意
+
+秋毫mem 给的建议是基于估算的，**不一定百分之百准确**。用它做的决策，风险你自己担着。
+
+详细说明看 [DISCLAIMER.md](./DISCLAIMER.md)。
+
+---
+
+## 许可证
+
+[Apache-2.0](./LICENSE)
+
+"秋毫mem"和"HawkEye Mem"是项目商标。
