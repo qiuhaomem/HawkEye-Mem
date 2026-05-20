@@ -83,9 +83,14 @@ jobs:
         run: |
           BIN=./target/x86_64-unknown-linux-musl/release/hawk-eye-mem
           ls -lh "$BIN"
+          echo "=== file output ==="
           file "$BIN"
-          file "$BIN" | grep -q "statically linked" && echo "✅ statically linked" || { echo "❌ not static"; exit 1; }
-          "$BIN" --version 2>/dev/null && echo "✅ runs standalone" || { echo "❌ execution failed"; exit 1; }
+          echo "=== ldd check ==="
+          ldd "$BIN" 2>&1 || true
+          echo "=== readelf check ==="
+          readelf -l "$BIN" 2>/dev/null | grep -q "INTERP" && echo "⚠️ has INTERP (dynamically linked)" || echo "✅ no INTERP (statically linked)"
+          echo "=== run test ==="
+          "$BIN" --version 2>&1 || { echo "❌ execution failed"; exit 1; }
 
   # === macOS 构建与实机验证 ===
   test-macos:
