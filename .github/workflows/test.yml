@@ -125,3 +125,10 @@ jobs:
           grep -q "Use at your own risk" /tmp/first_run.txt && echo "✅ 免责声明: Use at your own risk"
           grep -q "Quick Start" /tmp/first_run.txt && echo "✅ 引导信息: Quick Start"
           rm -rf "$TMP_HOME"
+
+      - name: Upload macOS binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: hawk-eye-mem-macos-arm64
+          path: ./target/release/hawk-eye-mem
+          compression-level: 0
