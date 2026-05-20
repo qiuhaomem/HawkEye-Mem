@@ -1,12 +1,12 @@
-use super::{CollectError, MemoryCollector, MemoryMetrics};
+use super::{CollectError, CollectorOutput, MemoryMetrics, PressureLevel, ResourceCollector};
 use std::process::Command;
 
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub struct MacosCollector;
 
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-impl MemoryCollector for MacosCollector {
-    fn collect(&self) -> Result<MemoryMetrics, CollectError> {
+impl ResourceCollector for MacosCollector {
+    fn collect(&self) -> Result<CollectorOutput, CollectError> {
         let vm_stat = Command::new("vm_stat")
             .output()
             .map_err(|e| CollectError::ReadFailed(e.to_string()))?;
@@ -74,6 +74,21 @@ impl MemoryCollector for MacosCollector {
             0.0
         };
 
-        Ok(MemoryMetrics { total_mb, used_mb, available_mb, used_percent })
+        let pressure = classify_pressure(available_mb, used_percent);
+
+        Ok(CollectorOutput::Memory(MemoryMetrics { total_mb, used_mb, available_mb, used_percent, pressure }))
+    }
+}
+
+/// 根据可用内存和已用百分比判定压力水位
+fn classify_pressure(available_mb: u64, used_percent: f64) -> PressureLevel {
+    if available_mb < 256 || used_percent > 95.0 {
+        PressureLevel::Critical
+    } else if available_mb < 512 || used_percent > 90.0 {
+        PressureLevel::High
+    } else if available_mb < 1024 || used_percent > 80.0 {
+        PressureLevel::Medium
+    } else {
+        PressureLevel::Low
     }
 }

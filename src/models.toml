@@ -1,0 +1,87 @@
+[[models]]
+name = "llama3-8b"
+size_b = 8000000000
+bytes_per_token = 2048
+memory_overhead_mb = 512
+quantizations = ["Q2_K", "Q3_K_M", "Q4_K_M", "Q5_K_M", "Q6_K", "Q8_0"]
+min_context = 2048
+max_context = 8192
+source = "Meta Llama 3 官方文档"
+last_updated = "2026-05"
+
+[[models]]
+name = "qwen2-7b"
+size_b = 7000000000
+bytes_per_token = 2048
+memory_overhead_mb = 512
+quantizations = ["Q2_K", "Q3_K_M", "Q4_K_M", "Q5_K_M", "Q6_K", "Q8_0"]
+min_context = 2048
+max_context = 32768
+source = "Qwen 2 技术报告"
+last_updated = "2026-05"
+
+[[models]]
+name = "deepseek-v2-lite"
+size_b = 16000000000
+bytes_per_token = 4096
+memory_overhead_mb = 1024
+quantizations = ["Q2_K", "Q3_K_M", "Q4_K_M", "Q5_K_M", "Q6_K", "Q8_0"]
+min_context = 2048
+max_context = 16384
+source = "DeepSeek V2 官方文档"
+last_updated = "2026-05"
+
+[[models]]
+name = "mistral-7b"
+size_b = 7000000000
+bytes_per_token = 2048
+memory_overhead_mb = 512
+quantizations = ["Q2_K", "Q3_K_M", "Q4_K_M", "Q5_K_M", "Q6_K", "Q8_0"]
+min_context = 2048
+max_context = 32768
+source = "Mistral AI 官方文档"
+last_updated = "2026-05"
+
+[[models]]
+name = "phi-3-mini"
+size_b = 3800000000
+bytes_per_token = 1536
+memory_overhead_mb = 256
+quantizations = ["Q4_K_M", "Q5_K_M", "Q8_0"]
+min_context = 2048
+max_context = 4096
+source = "Microsoft Phi-3 技术报告"
+last_updated = "2026-05"
+
+[[models]]
+name = "gemma-2-9b"
+size_b = 9000000000
+bytes_per_token = 2048
+memory_overhead_mb = 512
+quantizations = ["Q2_K", "Q3_K_M", "Q4_K_M", "Q5_K_M", "Q8_0"]
+min_context = 2048
+max_context = 8192
+source = "Google Gemma 2 官方文档"
+last_updated = "2026-05"
+
+[[models]]
+name = "yi-6b"
+size_b = 6000000000
+bytes_per_token = 2048
+memory_overhead_mb = 512
+quantizations = ["Q2_K", "Q3_K_M", "Q4_K_M", "Q5_K_M", "Q6_K", "Q8_0"]
+min_context = 2048
+max_context = 16384
+source = "01.AI Yi 系列官方文档"
+last_updated = "2026-05"
+
+[[models]]
+name = "chatglm3-6b"
+size_b = 6000000000
+bytes_per_token = 2048
+memory_overhead_mb = 512
+quantizations = ["Q3_K_M", "Q4_K_M", "Q5_K_M", "Q8_0"]
+min_context = 2048
+max_context = 8192
+source = "THUDM ChatGLM3 官方文档"
+last_updated = "2026-05"

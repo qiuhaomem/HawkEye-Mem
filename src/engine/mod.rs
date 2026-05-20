@@ -1,3 +1,4 @@
+pub mod assessment;
 pub mod guidance;
 
 use serde::Serialize;

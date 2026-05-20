@@ -5,6 +5,13 @@ use std::path::PathBuf;
 #[derive(Debug, Deserialize)]
 pub struct AppConfig {
     pub model: Option<ModelConfigSection>,
+    pub directories: Option<DirectoriesConfig>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DirectoriesConfig {
+    pub model_cache: Option<String>,
+    pub agent_process_names: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -92,12 +99,20 @@ mod tests {
     // UT-CF-004: 默认路径无文件静默跳过
     #[test]
     fn test_ut_cf_004_default_path_silent() {
+        // 使用临时 HOME 避免本地 ~/.config/hawk-eye-mem/config.toml 干扰
+        let tmp = tempfile::TempDir::new().unwrap();
+        let old_home = std::env::var_os("HOME");
+        std::env::set_var("HOME", tmp.path());
         std::env::remove_var("HAWKEYE_MEM_CONFIG");
         let result = AppConfig::load(None);
-        if result.is_ok() {
-            let config = result.unwrap();
-            assert!(config.is_none(), "无配置路径时应为None");
+        if let Some(ref h) = old_home {
+            std::env::set_var("HOME", h);
+        } else {
+            std::env::remove_var("HOME");
         }
+        assert!(result.is_ok(), "默认路径无文件应返回Ok");
+        let config = result.unwrap();
+        assert!(config.is_none(), "无配置路径时应为None");
     }
 
     // UT-CF-005: 环境变量覆盖默认路径
