@@ -60,6 +60,33 @@ jobs:
           PRS=$($BIN --metric pressure 2>/dev/null)
           [[ "$PRS" =~ ^(low|medium|high|critical)$ ]] && echo "✅ --metric pressure: $PRS" || { echo "❌ invalid pressure: $PRS"; exit 1; }
 
+  # === Linux musl 静态链接验证 ===
+  build-musl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain + musl target
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: x86_64-unknown-linux-musl
+
+      - name: Install musl-tools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq musl-tools
+
+      - name: Build with musl (static)
+        run: cargo build --release --target x86_64-unknown-linux-musl
+        env:
+          CARGO_HOME: ${{ runner.temp }}/cargo-home
+
+      - name: Verify static linking
+        run: |
+          BIN=./target/x86_64-unknown-linux-musl/release/hawk-eye-mem
+          ls -lh "$BIN"
+          file "$BIN"
+          file "$BIN" | grep -q "statically linked" && echo "✅ statically linked" || { echo "❌ not static"; exit 1; }
+          "$BIN" --version 2>/dev/null && echo "✅ runs standalone" || { echo "❌ execution failed"; exit 1; }
+
   # === macOS 构建与实机验证 ===
   test-macos:
     runs-on: macos-latest
