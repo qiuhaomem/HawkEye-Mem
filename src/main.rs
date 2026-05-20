@@ -201,6 +201,10 @@ fn build_json_output(
         result.estimated_tokens,
         &result.confidence.to_string(),
     );
+    let mut guidance_value = serde_json::to_value(&guidance).unwrap();
+    guidance_value["_note"] = serde_json::Value::String(
+        "The following are recommendations only. The ultimate decision-making authority resides with the user.".to_string()
+    );
     serde_json::json!({
         "timestamp": chrono::Utc::now().to_rfc3339(),
         "collection_duration_ms": (duration_ms * 10.0).round() / 10.0,
@@ -210,7 +214,7 @@ fn build_json_output(
             "available_mb": metrics.available_mb,
             "used_percent": metrics.used_percent,
         },
-        "agent_guidance": guidance,
+        "agent_guidance": guidance_value,
     })
 }
 
