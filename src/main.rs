@@ -38,7 +38,7 @@ struct Cli {
     init_config: bool,
 
     // === V0.2 W2 部署评估参数 ===
-    #[arg(long, conflicts_with = "json")]
+    #[arg(long)]
     can_run: bool,
     #[arg(long, conflicts_with = "model_size")]
     model: Option<String>,
@@ -194,7 +194,7 @@ fn handle_can_run(cli: &Cli) {
             results.push(assessment);
         }
         let recommended_idx = find_recommended(&results);
-        print_compare_output(&results, recommended_idx);
+        print_compare_output(&results, recommended_idx, cli.json);
         return;
     }
 
@@ -246,12 +246,96 @@ fn find_recommended(
 fn print_compare_output(
     results: &[engine::assessment::DeploymentAssessment],
     recommended_idx: Option<usize>,
+    json_output: bool,
 ) {
-    let compare_result = serde_json::json!({
-        "comparison": results,
-        "recommended_index": recommended_idx,
-    });
-    println!("{}", serde_json::to_string_pretty(&compare_result).unwrap());
+    if json_output {
+        // JSON 模式：保持原有格式
+        let compare_result = serde_json::json!({
+            "comparison": results,
+            "recommended_index": recommended_idx,
+        });
+        println!("{}", serde_json::to_string_pretty(&compare_result).unwrap());
+        return;
+    }
+
+    // 人类可读模式：彩色表格
+    const GREEN: &str = "\x1b[32m";
+    const YELLOW: &str = "\x1b[33m";
+    const RED: &str = "\x1b[31m";
+    const BOLD: &str = "\x1b[1m";
+    const RESET: &str = "\x1b[0m";
+
+    // 表头
+    println!(
+        "{BOLD}{:<20} {:<14} {:<40} {:<10}{RESET}",
+        "模型名称", "判定结果", "约束摘要", "安全方案数"
+    );
+    println!(
+        "{BOLD}{:-<90}{RESET}",
+        ""
+    );
+
+    for (i, a) in results.iter().enumerate() {
+        let color = match a.verdict {
+            engine::assessment::Verdict::Feasible => GREEN,
+            engine::assessment::Verdict::FeasibleWithCaveats => YELLOW,
+            engine::assessment::Verdict::Infeasible => RED,
+        };
+
+        let verdict_str = match a.verdict {
+            engine::assessment::Verdict::Feasible => "✅ 可行",
+            engine::assessment::Verdict::FeasibleWithCaveats => "⚠️ 有条件",
+            engine::assessment::Verdict::Infeasible => "❌ 不可行",
+        };
+
+        let star = if Some(i) == recommended_idx { " ⭐" } else { "   " };
+
+        // 约束摘要：每个资源一行简要信息
+        let constraints_summary = if a.constraints.is_empty() {
+            "—".to_string()
+        } else {
+            a.constraints
+                .iter()
+                .map(|c| format!("{}: 缺{}MB", c.resource, c.gap_mb))
+                .collect::<Vec<_>>()
+                .join("; ")
+        };
+
+        // 从 request 中提取模型名
+        let model_name = a
+            .request
+            .get("model_name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+
+        println!(
+            "{color}{:<20} {:<14} {:<40} {:<4}{}{RESET}",
+            model_name,
+            verdict_str,
+            truncate_str(&constraints_summary, 38),
+            a.safe_options.len(),
+            star,
+        );
+    }
+}
+
+/// 截断字符串到指定宽度（中文字符计2宽度的近似处理）
+fn truncate_str(s: &str, max_width: usize) -> String {
+    if s.len() <= max_width {
+        return s.to_string();
+    }
+    let mut result = String::new();
+    let mut width = 0usize;
+    for ch in s.chars() {
+        let w = if ch.is_ascii() { 1 } else { 2 };
+        if width + w > max_width.saturating_sub(3) {
+            break;
+        }
+        result.push(ch);
+        width += w;
+    }
+    result.push_str("...");
+    result
 }
 
 // ============================================================================
@@ -261,23 +345,47 @@ fn print_compare_output(
 fn print_model_table() {
     let models = models::ModelLibrary::all();
 
+    // 收集一次系统资源快照
+    let mut registry = CollectorRegistry::new();
+    if let Ok(Some(cfg)) = config::AppConfig::load(None) {
+        if let Some(dirs) = cfg.directories {
+            registry.set_directories(dirs.model_cache);
+        }
+    }
+    let snapshot = registry.collect_all();
+
     // ANSI 颜色
     const GREEN: &str = "\x1b[32m";
-    const CYAN: &str = "\x1b[36m";
+    const YELLOW: &str = "\x1b[33m";
+    const RED: &str = "\x1b[31m";
     const BOLD: &str = "\x1b[1m";
     const RESET: &str = "\x1b[0m";
 
     // 标题行
     println!(
-        "{GREEN}{BOLD}{:<20} {:<10} {:<6} {:<28} {:<14} {:<36} {:<10}{RESET}",
+        "{BOLD}{:<20} {:<10} {:<6} {:<28} {:<14} {:<36} {:<10}{RESET}",
         "模型名称", "参数量", "BPT", "量化", "上下文", "来源", "更新"
     );
     println!(
-        "{GREEN}{:-<128}{RESET}",
+        "{BOLD}{:-<128}{RESET}",
         ""
     );
 
     for m in models {
+        let req = DeploymentRequest {
+            model_name: Some(m.name.clone()),
+            quantization: None,
+            context_window: Some(m.max_context),
+            ..Default::default()
+        };
+        let assessment = AssessmentEngine::assess(&req, &snapshot);
+
+        let color = match assessment.verdict {
+            engine::assessment::Verdict::Feasible => GREEN,
+            engine::assessment::Verdict::FeasibleWithCaveats => YELLOW,
+            engine::assessment::Verdict::Infeasible => RED,
+        };
+
         let size_gb = m.size_b as f64 / 1e9;
         let context_str = if m.min_context == m.max_context {
             format!("{}", m.min_context)
@@ -285,7 +393,7 @@ fn print_model_table() {
             format!("{}-{}", m.min_context, m.max_context)
         };
         println!(
-            "{CYAN}{:<20} {:<10.1} {:<6} {:<28} {:<14} {:<36} {:<10}{RESET}",
+            "{color}{:<20} {:<10.1} {:<6} {:<28} {:<14} {:<36} {:<10}{RESET}",
             m.name,
             size_gb,
             m.bytes_per_token,
