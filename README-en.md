@@ -68,9 +68,50 @@ sudo cp target/release/hawk-eye-mem /usr/local/bin/
 
 You'll need Rust: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
 
-**Pre-built binaries (coming soon)**
+**Pre-built binaries**
 
-Download and run — no Rust toolchain needed.
+Download from [GitHub Releases](https://github.com/qiuhaomem/-HawkEye-Mem/releases):
+
+```bash
+# Linux (musl, statically linked, runs on any distro)
+curl -L -o hawk-eye-mem https://github.com/qiuhaomem/-HawkEye-Mem/releases/download/v0.2.0/hawk-eye-mem-v0.2.0-linux-x86-64-musl
+chmod +x hawk-eye-mem
+./hawk-eye-mem --help
+```
+
+---
+
+## V0.2 New: Deployment Pre-Check
+
+**Spending hours downloading a model only to have it crash on load — that's the worst.**
+HawkEye Mem V0.2 introduces the `--can-run` command — assess whether your machine can run a model before you download it.
+
+```bash
+# Check if your machine can run Llama-3-8B
+hawk-eye-mem --can-run --model llama3-8b
+
+# JSON output for AI Agents
+hawk-eye-mem --can-run --model llama3-8b --json
+
+# Compare which model fits your machine best
+hawk-eye-mem --can-run --compare llama3-8b,qwen2-7b,phi-3-mini
+
+# Manually specify model parameters
+hawk-eye-mem --can-run --model-size 7000000000 --quantization Q4_K_M --context 4096
+```
+
+`--can-run` reports one of three results:
+- ✅ **Feasible** — Your machine can handle it, go ahead and download
+- ⚠️ **Feasible with caveats** — Close, but you may need lower quantization, shorter context, or a smaller model
+- ❌ **Infeasible** — Disk space or RAM gap is too large
+
+It also includes a built-in library of 8 popular model specs (llama3-8b, qwen2-7b, deepseek-v2-lite, etc.). Use `--list-models` to see the full list:
+
+```bash
+hawk-eye-mem --list-models
+```
+
+Additionally, V0.2 adds **disk** and **CPU** monitoring. `hawk-eye-mem --json` output now includes `system.cpu` and `system.disk` (if a model cache directory is configured).
 
 ---
 
@@ -91,6 +132,15 @@ hawk-eye-mem --json --interval 5 --count 10
 
 # Keep watching until you hit Ctrl+C
 hawk-eye-mem --json --interval 5 --count 0
+
+# Check if your machine can run a model (new in V0.2)
+hawk-eye-mem --can-run --model llama3-8b
+
+# Compare which model fits your machine best
+hawk-eye-mem --can-run --compare llama3-8b,qwen2-7b,phi-3-mini
+
+# List all supported models
+hawk-eye-mem --list-models
 ```
 
 ---
@@ -143,6 +193,16 @@ Skipping this is fine. The conservative defaults are safe.
 ## Performance
 
 It won't slow you down. Each check takes under 1ms. The binary is under 1MB.
+
+---
+
+## Feedback
+
+V0.2 is an early release and we're actively collecting feedback. If you've tried `--can-run`, let us know: how accurate was it? Did it help?
+
+👉 [Feedback Issue](https://github.com/qiuhaomem/-HawkEye-Mem/issues/1)
+
+Every piece of feedback directly shapes V0.3's feature planning.
 
 ---
 

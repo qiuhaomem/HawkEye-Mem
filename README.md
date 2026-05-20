@@ -68,9 +68,50 @@ sudo cp target/release/hawk-eye-mem /usr/local/bin/
 
 需要先装 Rust：`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
 
-**直接下载二进制（即将支持）**
+**直接下载二进制**
 
-后面会发预编译好的包，下载解压就能用，不用装 Rust。
+从 [GitHub Releases](https://github.com/qiuhaomem/-HawkEye-Mem/releases) 下载预编译的二进制文件：
+
+```bash
+# Linux (musl 静态链接，任何发行版都能跑)
+curl -L -o hawk-eye-mem https://github.com/qiuhaomem/-HawkEye-Mem/releases/download/v0.2.0/hawk-eye-mem-v0.2.0-linux-x86-64-musl
+chmod +x hawk-eye-mem
+./hawk-eye-mem --help
+```
+
+---
+
+## V0.2 新增：部署前检测
+
+**花几小时下载一个模型，加载时崩了，这是最难受的。**
+秋毫mem V0.2 新增了 `--can-run` 命令——在你下载模型之前，先评估你的机器能不能跑得动。
+
+```bash
+# 看你的机器能不能跑 Llama-3-8B
+hawk-eye-mem --can-run --model llama3-8b
+
+# JSON 输出给 AI Agent 用
+hawk-eye-mem --can-run --model llama3-8b --json
+
+# 看看几个模型里哪个最适合你的机器
+hawk-eye-mem --can-run --compare llama3-8b,qwen2-7b,phi-3-mini
+
+# 手动指定模型参数
+hawk-eye-mem --can-run --model-size 7000000000 --quantization Q4_K_M --context 4096
+```
+
+`--can-run` 会告诉你三种结果：
+- ✅ **可行** — 你的机器完全能跑，放心下载
+- ⚠️ **有条件** — 差一点，但可以降量化/减上下文/换小模型
+- ❌ **不可行** — 磁盘空间或内存差距太大
+
+同时内置了 8 个主流模型的参数库（llama3-8b、qwen2-7b、deepseek-v2-lite 等），`--list-models` 查看完整列表：
+
+```bash
+hawk-eye-mem --list-models
+```
+
+此外，V0.2 还新增了**磁盘**和**CPU**监控。`hawk-eye-mem --json` 的输出现在包含 `system.cpu` 和 `system.disk`（如果有模型缓存目录的话）。
 
 ---
 
@@ -91,6 +132,15 @@ hawk-eye-mem --json --interval 5 --count 10
 
 # 一直盯着，按 Ctrl+C 停
 hawk-eye-mem --json --interval 5 --count 0
+
+# 排查部署前能否运行某个模型（V0.2 新增）
+hawk-eye-mem --can-run --model llama3-8b
+
+# 对比哪个模型最适合你的电脑
+hawk-eye-mem --can-run --compare llama3-8b,qwen2-7b,phi-3-mini
+
+# 列出内置支持的模型
+hawk-eye-mem --list-models
 ```
 
 ---
@@ -143,6 +193,16 @@ hawk-eye-mem --init-config
 ## 性能
 
 不会拖慢你的系统。查一次不到 1 毫秒，二进制不到 1MB。
+
+---
+
+## 反馈
+
+V0.2 是一个早期版本，我们正在收集反馈。如果你试用了 `--can-run`，请告诉我们：检测准不准？有没有帮到你？
+
+👉 [反馈 Issue](https://github.com/qiuhaomem/-HawkEye-Mem/issues/1)
+
+你的每一条反馈都会直接影响 V0.3 的功能规划。
 
 ---
 

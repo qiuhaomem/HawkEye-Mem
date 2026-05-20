@@ -21,7 +21,7 @@ margin = 30.0
 "#;
 
 #[derive(Parser)]
-#[command(name = "hawk-eye-mem", version = "0.1.0", about = "AI-Native memory monitoring")]
+#[command(name = "hawk-eye-mem", version = "0.2.0", about = "AI-Native memory monitoring")]
 struct Cli {
     // === 原有参数 ===
     #[arg(long, conflicts_with = "metric")]
@@ -416,7 +416,7 @@ fn get_onboarded_path() -> PathBuf {
 
 fn print_disclaimer() {
     eprintln!("================================================================================");
-    eprintln!("  HawkEye Mem (秋毫mem) v0.1.0");
+    eprintln!("  HawkEye Mem (秋毫mem) v0.2.0");
     eprintln!("  No warranty. Use at your own risk.");
     eprintln!("  This software is provided 'as is', without any express or implied warranty.");
     eprintln!("================================================================================");

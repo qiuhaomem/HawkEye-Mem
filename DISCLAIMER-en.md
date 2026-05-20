@@ -40,7 +40,32 @@ These estimations depend on numerous variables, including but not limited to:
 
 ---
 
-## 3. Functional Boundaries of the Software
+## 3. Special Provisions for Deployment Assessment (`--can-run`)
+
+V0.2 introduces the `--can-run` deployment assessment feature. This functionality is materially different in risk profile from runtime monitoring, and therefore requires a separate disclaimer.
+
+**The deployment recommendations output by `--can-run` (including `verdict`, `constraints`, and `safe_options`) are estimations based on limited information.** Actual deployment success also depends on factors beyond this Software's control, including but not limited to:
+
+- Operating system version and kernel configuration
+- Driver version and compatibility (particularly GPU drivers)
+- Resource contention with other running applications on the system
+- Variations in model file implementations across different frameworks
+- Network interruptions or storage space changes during download
+
+**Any losses incurred as a result of acting upon deployment recommendations, including but not limited to:**
+
+- Bandwidth consumption and wasted download time
+- Storage space usage
+- System instability or service interruption due to deployment failure
+- Additional debugging costs arising from model file compatibility issues
+
+**ARE THE SOLE RESPONSIBILITY OF THE USER. THE AUTHORS, CONTRIBUTORS, AND MAINTAINERS OF THE SOFTWARE ASSUME NO LIABILITY.**
+
+The model parameter library built into the Software is compiled from official documentation and community testing, with data sources and last-updated timestamps noted. However, no guarantee is made as to the absolute accuracy of these parameters. Users should independently verify the suitability of parameters for their own environment.
+
+---
+
+## 4. Functional Boundaries of the Software
 
 The Software is designed solely to **output information**. It does not possess, and expressly disclaims responsibility for, the following capabilities:
 
@@ -52,7 +77,7 @@ Furthermore, all recommendations provided by the Software are time-sensitive. Th
 
 ---
 
-## 4. Limitation of Liability and Waiver of Damages
+## 5. Limitation of Liability and Waiver of Damages
 
 TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW:
 
@@ -70,7 +95,7 @@ TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW:
 
 ---
 
-## 5. Special Notice to Enterprise Users
+## 6. Special Notice to Enterprise Users
 
 If you intend to deploy the Software in a production environment, commercial system, or mission-critical application, it is your responsibility to:
 
@@ -82,19 +107,19 @@ If you intend to deploy the Software in a production environment, commercial sys
 
 ---
 
-## 6. Third-Party Components and Dependencies
+## 7. Third-Party Components and Dependencies
 
 The Software may link to or depend upon third-party open-source components. Such components are governed by their respective licenses. We make no warranty regarding the functionality, security, or compliance of any third-party component.
 
 ---
 
-## 7. Governing Law and Severability
+## 8. Governing Law and Severability
 
 This Disclaimer shall be governed by and construed in accordance with the laws of the People's Republic of China. If any provision of this Disclaimer is found by a court of competent jurisdiction to be invalid or unenforceable, the remaining provisions shall remain in full force and effect.
 
 ---
 
-## 8. Amendments
+## 9. Amendments
 
 We reserve the right to modify this Disclaimer at any time. The amended version shall become effective upon being updated in this repository. Continued use of the Software following any such modification constitutes your acceptance of the revised terms.
 
