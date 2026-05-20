@@ -415,8 +415,7 @@ fn test_st_as_002_nonexistent_model() {
     // 应有 verdict（即便模型不存在）
     assert!(v.get("verdict").is_some(), "should have verdict");
 }
-
-/// ST-AS-003: 评估时手动指定超大 context 32768（极限压力）
+/// ST-AS-003: 超大 context 32768 — 验证评估引擎正确处理，不崩溃
 #[test]
 fn test_st_as_003_huge_context() {
     let (stdout, _, code) = run_bin(&[
@@ -428,9 +427,10 @@ fn test_st_as_003_huge_context() {
     let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     let verdict = v.get("verdict").unwrap().as_str().unwrap_or("");
 
-    // 32768 context + 16B model 需要大量内存，应非可行
-    assert_ne!(verdict, "feasible",
-        "deepseek-v2-lite with 32768 context should NOT be feasible");
+    // verdict 可能为 feasible（大内存机器）或 feasible_with_caveats
+    // 只验证不 panic 且输出结构正确
+    assert!(["feasible", "feasible_with_caveats", "infeasible"].contains(&verdict),
+        "verdict should be a valid value, got: {}", verdict);
 
     // 验证 request 包含指定 context
     let request = v.get("request").unwrap();
@@ -438,26 +438,30 @@ fn test_st_as_003_huge_context() {
         "request should contain context_window=32768");
 }
 
-/// ST-AS-004: deepseek-v2-lite (16B) 在典型机器上应不够
-/// 验证评估输出包含约束
+/// ST-AS-004: 手动指定超大模型参数应产生内存约束（硬件无关）
 #[test]
-fn test_st_as_004_deepseek_v2_lite() {
+fn test_st_as_004_huge_model_size() {
     let (stdout, _, code) = run_bin(&[
-        "--can-run", "--model", "deepseek-v2-lite",
+        "--can-run", "--model-size", "200000000000", "--context", "4096",
     ]);
     assert_eq!(code, 0);
 
     let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let _constraints = v.get("constraints")
-        .expect("should have constraints")
+    let verdict = v.get("verdict").unwrap().as_str().unwrap_or("");
+
+    // 200B 模型在任何机器上都不 feasible
+    assert_ne!(verdict, "feasible",
+        "200B model should NOT be feasible on any machine");
+
+    // 应有约束
+    let constraints = v.get("constraints")
+        .expect("assessment should have constraints")
         .as_array()
         .unwrap();
-    assert!(!_constraints.is_empty(),
-        "deepseek-v2-lite should have at least one memory constraint");
+    assert!(!constraints.is_empty(),
+        "200B model should have constraints");
 
-    // 16B 模型在大多数机器上需要 >8GB RAM
-    // 只要输出结构正确即可
-    assert!(v.get("verdict").is_some());
+    // 应有降级方案
     assert!(v.get("safe_options").is_some());
 }
 
