@@ -112,7 +112,38 @@
    112|| `used_percent` | Usage percentage | f64 (one decimal) |
    113|| `pressure` | Pressure level | string |
    114|
-   115|## Common Pitfalls
+   115|## MCP 集成
+
+秋毫mem 提供了 MCP Server，可以将内存监控注册为 Hermes 的 MCP 工具，Agent 自动调用、无需手动执行命令。
+
+### 安装 MCP Server
+
+```bash
+# 1. 确保 hawk-eye-mem 二进制在 PATH 中
+hawk-eye-mem --version
+
+# 2. 注册 MCP Server（路径替换为实际位置）
+hermes mcp add hawk-eye-mem --command python3 --args /path/to/scripts/hawkeye-mcp-server.py
+
+# 3. 启用全部 3 个工具（Y），然后新会话生效
+```
+
+### 可用工具
+
+| 工具名 | 功能 | 参数 |
+|--------|------|------|
+| `get_memory_status` | 获取完整内存状态 + Agent 决策建议 | 无参数 |
+| `get_memory_metric` | 获取单个指标 | `metric`: total_mb/used_mb/available_mb/used_percent/pressure |
+| `get_memory_guidance` | 获取 Agent 决策建议（action/pressure/tokens） | 无参数 |
+
+### 使用示例
+
+注册后，Agent 会在以下场景**自动调用**这些工具：
+- 用户问"还剩多少内存" → 调用 `get_memory_status`
+- Agent 判断是否需要缩上下文 → 调用 `get_memory_guidance`
+- 快速检查压力等级 → 调用 `get_memory_metric("pressure")`
+
+## Common Pitfalls
    116|
    117|1. **Don't confuse `available_mb` with `free_mb`.** `available_mb` includes reclaimable cache/buffer memory — it's the real number for "how much can I use before swapping".
    118|2. **First run shows disclaimer.** The first invocation outputs a disclaimer to stderr + creates `~/.config/hawk-eye-mem/.onboarded`. Subsequent runs are silent.
