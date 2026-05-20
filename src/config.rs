@@ -9,6 +9,7 @@ pub struct AppConfig {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct DirectoriesConfig {
     pub model_cache: Option<String>,
     pub agent_process_names: Option<Vec<String>>,

@@ -143,6 +143,7 @@ impl std::fmt::Display for GpuPressure {
 // ============================================================================
 
 #[derive(Debug, Error)]
+#[allow(dead_code)]
 pub enum CollectError {
     #[error("Permission denied: {0}")]
     PermissionDenied(String),
