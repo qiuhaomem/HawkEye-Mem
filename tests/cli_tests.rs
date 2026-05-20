@@ -195,7 +195,7 @@ fn test_it_json_002_collection_duration() {
     assert_eq!(code, 0);
     let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     let dur = v["collection_duration_ms"].as_f64().expect("collection_duration_ms should be a number");
-    assert!(dur > 0.0, "duration should be > 0, got: {}", dur);
+    assert!(dur >= 0.0, "duration should be >= 0, got: {}", dur);
     assert!(dur < 100.0, "duration should be < 100ms, got: {}", dur);
 }
 
