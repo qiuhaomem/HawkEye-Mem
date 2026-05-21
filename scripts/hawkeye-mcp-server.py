@@ -90,10 +90,16 @@ def handle_list_tools(params: dict) -> dict:
         "tools": [
             {
                 "name": "get_memory_status",
-                "description": "获取完整系统内存状态，包含总内存、已用、可用、使用率，以及 Agent 决策建议（pressure/action/estimated_safe_context_window）",
+                "description": "获取完整系统内存状态，包含总内存、已用、可用、使用率，以及 Agent 决策建议（pressure/action/estimated_safe_context_window）。可选传入 tokens_processed 用于动态校准数据采集。",
                 "inputSchema": {
                     "type": "object",
-                    "properties": {},
+                    "properties": {
+                        "tokens_processed": {
+                            "type": "integer",
+                            "description": "本次推理实际处理的 token 数（可选）。传入后秋毫mem 会记录校准数据点，用于动态估算参数修正。",
+                            "required": false
+                        }
+                    },
                     "required": []
                 }
             },
@@ -130,7 +136,11 @@ def handle_call_tool(params: dict) -> dict:
     arguments = params.get("arguments", {})
 
     if name == "get_memory_status":
-        data = run_hawkeye(["--json"])
+        args = ["--json"]
+        tokens = arguments.get("tokens_processed")
+        if tokens is not None:
+            args.extend(["--tokens-processed", str(tokens)])
+        data = run_hawkeye(args)
         if "error" in data:
             return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
         return {"content": [{"type": "text", "text": json.dumps(data, indent=2)}]}

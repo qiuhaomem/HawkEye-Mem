@@ -28,6 +28,7 @@ pub struct DiskMetrics {
     pub available_mb: u64,
     pub used_percent: f64,
     pub pressure: DiskPressure,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub growth_rate_mb_per_hour: Option<f64>,
 }
 
@@ -37,6 +38,7 @@ pub struct CpuMetrics {
     pub load_avg_1m: f64,
     pub load_avg_5m: f64,
     pub load_avg_15m: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub agent_processes_percent: Option<f64>,
     pub pressure: CpuPressure,
 }
@@ -73,6 +75,23 @@ impl std::fmt::Display for PressureLevel {
             PressureLevel::High => write!(f, "high"),
             PressureLevel::Critical => write!(f, "critical"),
         }
+    }
+}
+
+impl PressureLevel {
+    /// 压力优先级数值（0=最低压力，3=最高压力）
+    pub fn priority(&self) -> u8 {
+        match self {
+            PressureLevel::Low => 0,
+            PressureLevel::Medium => 1,
+            PressureLevel::High => 2,
+            PressureLevel::Critical => 3,
+        }
+    }
+
+    /// 返回两者中压力更低（更宽松）的一个
+    pub fn min(a: Self, b: Self) -> Self {
+        if a.priority() <= b.priority() { a } else { b }
     }
 }
 
@@ -183,9 +202,13 @@ pub trait ResourceCollector: Send + Sync {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ResourceSnapshot {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub memory: Option<MemoryMetrics>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub disk: Option<DiskMetrics>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub cpu: Option<CpuMetrics>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub gpu: Option<Vec<GpuMetrics>>,
     pub timestamp: String,
     pub collection_duration_ms: f64,

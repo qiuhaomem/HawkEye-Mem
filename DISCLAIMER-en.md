@@ -65,7 +65,44 @@ The model parameter library built into the Software is compiled from official do
 
 ---
 
-## 4. Functional Boundaries of the Software
+## 4. V0.3 Calibration Data and Privacy Special Provisions
+
+V0.3 introduces a dynamic calibration feature. This feature records memory usage data from inference runs to improve context window estimation accuracy. By using this feature, you acknowledge and agree to the following:
+
+### 4.1 Accuracy of Calibration Data
+
+Calibration data (including memory snapshots before and after each inference, KV cache byte counts, and token counts processed) is stored locally in CSV files. **The accuracy of calibration results depends on the quality and quantity of collected data:**
+
+- When fewer than 10 data points have been collected, calibration results are in a low-confidence phase and estimates remain conservative.
+- Calibration is a progressive process — the first 3-5 estimates may deviate significantly from actual conditions.
+- The calibration engine uses a weighted averaging algorithm that performs smooth inference based solely on historical data trends. It does **not** perform any causal analysis or predictive forecasting.
+
+### 4.2 Model Name Hashing
+
+Model names in calibration data are processed through **SHA256 hashing** (truncated to the first 16 hex characters), combined with the first 8 characters of your machine's `/etc/machine-id` as a salt value. This means:
+
+- Only the hash value of the model name is stored in CSV files; the original model name is never written to disk.
+- Hash values cannot be correlated across machines — the same model produces different hash values on different machines due to differing salt values.
+- **However**, on a single machine, a hash value can uniquely identify a model (because the salt is fixed). If you have privacy concerns about this, run `--reset-calibration` periodically to clear the data.
+
+### 4.3 Special Notice to Cloud Server Users
+
+If you use this Software on cloud servers (including but not limited to AWS EC2, Alibaba Cloud ECS, Tencent Cloud CVM, etc.):
+
+- Calibration data is stored in `~/.config/hawk-eye-mem/calibration/`.
+- **Data on temporary cloud instances may be recoverable by subsequent tenants after the instance is terminated.**
+- Before terminating an instance, it is recommended to run `--reset-calibration` or manually delete all calibration data files in the aforementioned directory.
+- If you use shared or ephemeral cloud environments, consider not enabling the calibration feature, or ensure calibration data is cleared after each session.
+
+### 4.4 V0.3 State Machine and Emergency Fast Lane
+
+V0.3 introduces a time-based continuous monitoring state machine (Normal/Warning/Critical three-state model) and an emergency fast lane. When available system memory falls below `total memory × 10%` and below `512MB`, the state machine immediately transitions to Critical and triggers the `AbortSafely` recommendation.
+
+**This mechanism is a mathematical determination at the software level and does not constitute physical detection or diagnosis of hardware faults, memory leaks, or other system anomalies.** Even when the state machine has not triggered Critical status, the system may still experience memory exhaustion or process crashes due to various unpredictable causes (e.g., instantaneous memory spikes, memory fragmentation, hardware failures).
+
+---
+
+## 5. Functional Boundaries of the Software
 
 The Software is designed solely to **output information**. It does not possess, and expressly disclaims responsibility for, the following capabilities:
 

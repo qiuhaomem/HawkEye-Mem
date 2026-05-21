@@ -6,6 +6,13 @@ use std::path::PathBuf;
 pub struct AppConfig {
     pub model: Option<ModelConfigSection>,
     pub directories: Option<DirectoriesConfig>,
+    pub gpu: Option<GpuConfig>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GpuConfig {
+    /// AMD ROCm `rocm-smi` 自定义路径（CR-03）
+    pub rocm_smi_path: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

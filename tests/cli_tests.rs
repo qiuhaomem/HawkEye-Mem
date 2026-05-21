@@ -345,3 +345,39 @@ fn test_it_first_onboarding_full() {
         std::env::remove_var("HOME");
     }
 }
+
+// ===================== T5 校准采集集成测试 =====================
+
+/// IT-CAL-001: --json --tokens-processed 输出含 _calibration 字段
+#[test]
+fn test_it_cal_001_json_with_tokens_processed() {
+    let (stdout, _, code) = run_bin(&["--json", "--tokens-processed", "4096"]);
+    assert_eq!(code, 0, "exit code should be 0");
+    let v: serde_json::Value = serde_json::from_str(&stdout)
+        .expect("stdout should be valid JSON");
+    assert!(
+        v.get("_calibration").is_some(),
+        "JSON should contain '_calibration' key when --tokens-processed is provided"
+    );
+    let cal = v["_calibration"].as_object().unwrap();
+    assert_eq!(cal["tokens_processed"], 4096, "tokens_processed should match");
+    // 单次调用无前一次快照，故 status = skipped
+    assert_eq!(
+        cal["status"], "skipped",
+        "single-shot should have status=skipped, got: {}",
+        cal["status"]
+    );
+}
+
+/// IT-CAL-002: --json 不传 tokens_processed 时无 _calibration 字段
+#[test]
+fn test_it_cal_002_json_without_tokens_processed() {
+    let (stdout, _, code) = run_bin(&["--json"]);
+    assert_eq!(code, 0);
+    let v: serde_json::Value = serde_json::from_str(&stdout)
+        .expect("stdout should be valid JSON");
+    assert!(
+        v.get("_calibration").is_none(),
+        "JSON should NOT contain '_calibration' key when --tokens-processed is not provided"
+    );
+}

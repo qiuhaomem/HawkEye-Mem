@@ -1,8 +1,11 @@
+mod calibration;
 mod collector;
 mod config;
 mod engine;
 mod models;
 
+use calibration::algorithm::CalibrationEngine;
+use calibration::csv_store::CsvStore;
 use clap::Parser;
 use collector::registry::CollectorRegistry;
 use engine::assessment::{AssessmentEngine, DeploymentRequest};
@@ -52,6 +55,11 @@ struct Cli {
     compare: Option<String>,
     #[arg(long)]
     list_models: bool,
+
+    // === V0.3 校准相关参数 ===
+    /// 本次推理实际处理的 token 数（CR-01 MCP Tool 传入）
+    #[arg(long)]
+    tokens_processed: Option<u64>,
 }
 
 fn main() {
@@ -100,6 +108,12 @@ fn main() {
         return;
     }
 
+    // === V0.3 校准引擎初始化 ===
+    let calibration_path = get_calibration_path();
+    let csv_store = CsvStore::new(calibration_path, 100);
+    let mut calibration_engine = CalibrationEngine::new(csv_store);
+    let model_name = cli.model.clone().unwrap_or_else(|| "default".to_string());
+
     // === 原有的内存监控逻辑 ===
     let count = cli.count.unwrap_or(1);
     let interval = cli.interval.unwrap_or(0);
@@ -114,6 +128,7 @@ fn main() {
     .expect("Error setting Ctrl-C handler");
 
     let mut iter = 0u64;
+    let mut previous_snapshot: Option<collector::ResourceSnapshot> = None;
     while running.load(Ordering::SeqCst) && (infinite || iter < count) {
         if iter > 0 && interval > 0 {
             let chunk = std::time::Duration::from_millis(100);
@@ -140,20 +155,40 @@ fn main() {
             .as_ref()
             .expect("Memory collector must succeed");
 
+        // T5: 当有 tokens_processed 且存在前一次快照时，记录校准数据
+        let mut recorded_calibration = false;
+        if let Some(tok) = cli.tokens_processed {
+            if let Some(ref before) = previous_snapshot {
+                if calibration_engine
+                    .record_inference_from_snapshots(before, &snapshot, tok, &model_name)
+                    .unwrap_or(None)
+                    .is_some()
+                {
+                    recorded_calibration = true;
+                }
+            }
+        }
+
         if (is_continuous || infinite) && !cli.metric.is_some() {
             let app_config = load_config(&cli);
             let result = calc_estimate(metrics, &app_config);
-            let output = build_json_output(&snapshot, &result);
+            let output = build_json_output(
+                &snapshot, &result, cli.tokens_processed, recorded_calibration,
+            );
             println!("{}", serde_json::to_string(&output).unwrap());
         } else if let Some(metric) = &cli.metric {
             print_metric(metrics, metric);
         } else {
             let app_config = load_config(&cli);
             let result = calc_estimate(metrics, &app_config);
-            let output = build_json_output(&snapshot, &result);
+            let output = build_json_output(
+                &snapshot, &result, cli.tokens_processed, recorded_calibration,
+            );
             println!("{}", serde_json::to_string_pretty(&output).unwrap());
         }
 
+        // 保存当前快照作为下一次的前一次快照
+        previous_snapshot = Some(snapshot);
         iter += 1;
     }
 
@@ -458,9 +493,18 @@ fn calc_estimate(
     engine::EstimationEngine::estimate(metrics.available_mb, model_config)
 }
 
+/// 获取校准数据存储目录：~/.config/hawk-eye-mem/calibration/
+fn get_calibration_path() -> PathBuf {
+    dirs_next::home_dir()
+        .unwrap_or_else(|| PathBuf::from("/tmp"))
+        .join(".config/hawk-eye-mem/calibration")
+}
+
 fn build_json_output(
     snapshot: &collector::ResourceSnapshot,
     result: &engine::EstimationResult,
+    tokens_processed: Option<u64>,
+    recorded: bool,
 ) -> serde_json::Value {
     let metrics = snapshot
         .memory
@@ -495,12 +539,32 @@ fn build_json_output(
         system["gpu"] = serde_json::to_value(gpu).unwrap();
     }
 
-    serde_json::json!({
+    let mut output = serde_json::json!({
         "timestamp": snapshot.timestamp,
         "collection_duration_ms": snapshot.collection_duration_ms,
         "system": system,
         "agent_guidance": guidance_value,
-    })
+    });
+
+    // T5: MCP Tool 传入 tokens_processed 时，输出校准数据点状态
+    if let Some(tok) = tokens_processed {
+        if recorded {
+            output["_calibration"] = serde_json::json!({
+                "tokens_processed": tok,
+                "status": "recorded",
+                "note": "Calibration data point recorded. See --calibration-stats for status."
+            });
+        } else {
+            output["_calibration"] = serde_json::json!({
+                "tokens_processed": tok,
+                "status": "skipped",
+                "reason": "需要两次连续采集才能计算 delta。请重复此命令或在 --interval 循环中使用。",
+                "note": "Calibration requires two consecutive snapshots. Run twice or use --interval mode."
+            });
+        }
+    }
+
+    output
 }
 
 fn print_metric(metrics: &collector::MemoryMetrics, name: &str) {
