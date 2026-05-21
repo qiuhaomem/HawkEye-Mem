@@ -3,12 +3,14 @@ mod collector;
 mod config;
 mod engine;
 mod models;
+mod state_machine;
 
 use calibration::algorithm::CalibrationEngine;
 use calibration::csv_store::CsvStore;
 use clap::Parser;
 use collector::registry::CollectorRegistry;
 use engine::assessment::{AssessmentEngine, DeploymentRequest};
+use state_machine::{StateMachine, StateMachineConfig, StateTransition};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -129,6 +131,17 @@ fn main() {
 
     let mut iter = 0u64;
     let mut previous_snapshot: Option<collector::ResourceSnapshot> = None;
+
+    // T10: 状态机集成 — 仅在连续监控模式（--interval）下启用
+    let _use_state_machine = is_continuous || infinite;
+    let mut state_machine: Option<StateMachine> = if _use_state_machine {
+        Some(StateMachine::new(StateMachineConfig::default()))
+    } else {
+        None
+    };
+    // 记录上一次状态机的 action（状态未变化时沿用）
+    let mut last_sm_action: &'static str = "ok";
+
     while running.load(Ordering::SeqCst) && (infinite || iter < count) {
         if iter > 0 && interval > 0 {
             let chunk = std::time::Duration::from_millis(100);
@@ -155,6 +168,17 @@ fn main() {
             .as_ref()
             .expect("Memory collector must succeed");
 
+        // T10: 状态机更新 — 每次采集后调用
+        let sm_transition = if let Some(ref mut sm) = &mut state_machine {
+            let trans = sm.update(metrics, std::time::Instant::now());
+            if trans != StateTransition::None {
+                last_sm_action = trans.action();
+            }
+            Some(trans)
+        } else {
+            None
+        };
+
         // T5: 当有 tokens_processed 且存在前一次快照时，记录校准数据
         let mut recorded_calibration = false;
         if let Some(tok) = cli.tokens_processed {
@@ -174,6 +198,7 @@ fn main() {
             let result = calc_estimate(metrics, &app_config);
             let output = build_json_output(
                 &snapshot, &result, cli.tokens_processed, recorded_calibration,
+                &sm_transition, last_sm_action,
             );
             println!("{}", serde_json::to_string(&output).unwrap());
         } else if let Some(metric) = &cli.metric {
@@ -183,6 +208,7 @@ fn main() {
             let result = calc_estimate(metrics, &app_config);
             let output = build_json_output(
                 &snapshot, &result, cli.tokens_processed, recorded_calibration,
+                &sm_transition, last_sm_action,
             );
             println!("{}", serde_json::to_string_pretty(&output).unwrap());
         }
@@ -505,6 +531,8 @@ fn build_json_output(
     result: &engine::EstimationResult,
     tokens_processed: Option<u64>,
     recorded: bool,
+    sm_transition: &Option<StateTransition>,
+    sm_action: &'static str,
 ) -> serde_json::Value {
     let metrics = snapshot
         .memory
@@ -517,6 +545,27 @@ fn build_json_output(
         &result.confidence.to_string(),
     );
     let mut guidance_value = serde_json::to_value(&guidance).unwrap();
+
+    // T10: 状态机模式 — 用状态机的 action 覆盖即时判定的 action
+    if sm_transition.is_some() {
+        if let Some(obj) = guidance_value.as_object_mut() {
+            obj.insert("action".to_string(), serde_json::Value::String(sm_action.to_string()));
+            // 状态未变化时补充说明
+            if sm_action == "no_change" {
+                obj.insert(
+                    "reason".to_string(),
+                    serde_json::Value::String(format!(
+                        "State unchanged ({}): {}MB available, {}% used. {}",
+                        metrics.pressure,
+                        metrics.available_mb,
+                        metrics.used_percent,
+                        "Monitoring continues — no transition needed.",
+                    )),
+                );
+            }
+        }
+    }
+
     guidance_value["_note"] = serde_json::Value::String(
         "The following are recommendations only. The ultimate decision-making authority resides with the user."
             .to_string(),
@@ -545,6 +594,15 @@ fn build_json_output(
         "system": system,
         "agent_guidance": guidance_value,
     });
+
+    // T10: 状态机模式 — 输出当前状态机信息
+    if let Some(transition) = sm_transition {
+        output["machine_state"] = serde_json::json!({
+            "state": sm_action,
+            "transition": format!("{:?}", transition),
+            "note": "状态机仅在 --interval 连续监控模式下生效。",
+        });
+    }
 
     // T5: MCP Tool 传入 tokens_processed 时，输出校准数据点状态
     if let Some(tok) = tokens_processed {
