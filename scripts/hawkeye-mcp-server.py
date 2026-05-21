@@ -98,8 +98,7 @@ def handle_list_tools(params: dict) -> dict:
                     "properties": {
                         "tokens_processed": {
                             "type": "integer",
-                            "description": "本次推理实际处理的 token 数（可选）。传入后秋毫mem 会记录校准数据点。",
-                            "required": False
+                            "description": "本次推理实际处理的 token 数（可选）。传入后秋毫mem 会记录校准数据点。"
                         }
                     },
                     "required": []
@@ -164,8 +163,7 @@ def handle_list_tools(params: dict) -> dict:
                     "properties": {
                         "model_name": {
                             "type": "string",
-                            "description": "模型名称，如 llama3-8b、deepseek-v3",
-                            "required": True
+                            "description": "模型名称，如 llama3-8b、deepseek-v3"
                         }
                     },
                     "required": ["model_name"]
