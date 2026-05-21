@@ -30,7 +30,7 @@ margin = 30.0
 "#;
 
 #[derive(Parser)]
-#[command(name = "hawk-eye-mem", version = "0.2.0", about = "AI-Native memory monitoring")]
+#[command(name = "hawk-eye-mem", version = "0.3.0", about = "AI-Native memory monitoring")]
 struct Cli {
     // === 原有参数 ===
     #[arg(long, conflicts_with = "metric")]

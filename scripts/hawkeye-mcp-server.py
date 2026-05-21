@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 """
-秋毫mem MCP Server — 让 AI Agent 通过 MCP 协议直接感知物理内存。
+秋毫mem MCP Server — 让 AI Agent 通过 MCP 协议直接感知系统资源。
+
+V0.3 新增：
+  - GPU 状态采集（NVIDIA NVML / nvidia-smi / AMD ROCm / Apple Metal）
+  - CPU/GPU 温度监控
+  - 同机多 Agent 进程检测
+  - 状态机连续监控模式
+  - 动态校准引擎
 
 安装方式（在 Hermes 中）：
     hermes mcp add hawk-eye-mem --command python3 /path/to/hawkeye-mcp-server.py
-
-然后 Hermes 会自动发现以下工具，Agent 可直接调用。
 """
 
 import json
@@ -14,7 +19,6 @@ import subprocess
 import sys
 
 # === 秋毫mem 二进制路径 ===
-# 优先从 PATH 查找，找不到则尝试常见安装位置
 HAWKEYE_BIN = "hawk-eye-mem"
 
 
@@ -29,11 +33,11 @@ def find_binary(name: str) -> str | None:
         "/usr/local/bin/hawk-eye-mem",
         "./target/release/hawk-eye-mem",
         "./target/debug/hawk-eye-mem",
-        # 项目目录
         os.path.expanduser("~/projects/qiuhaomem/target/release/hawk-eye-mem"),
+        os.path.expanduser("~/projects/qiuhaomem/target/debug/hawk-eye-mem"),
     ]
     for c in candidates:
-        expanded = c.replace("~", str(subprocess.check_output(["echo", "~"]).decode().strip()))
+        expanded = os.path.expanduser(c)
         if os.path.isfile(expanded) and os.access(expanded, os.X_OK):
             return os.path.abspath(expanded)
     return None
@@ -56,11 +60,9 @@ def run_hawkeye(args: list[str]) -> dict:
         stdout = result.stdout.decode().strip()
         if not stdout:
             return {"error": "empty output"}
-        # 尝试解析 JSON
         try:
             return json.loads(stdout)
         except json.JSONDecodeError:
-            # 可能是纯文本输出（如 --metric）
             return {"value": stdout}
     except subprocess.TimeoutExpired:
         return {"error": "command timed out"}
@@ -80,7 +82,7 @@ def handle_initialize(params: dict) -> dict:
         },
         "serverInfo": {
             "name": "hawk-eye-mem",
-            "version": "0.1.0"
+            "version": "0.3.0"
         }
     }
 
@@ -90,14 +92,14 @@ def handle_list_tools(params: dict) -> dict:
         "tools": [
             {
                 "name": "get_memory_status",
-                "description": "获取完整系统内存状态，包含总内存、已用、可用、使用率，以及 Agent 决策建议（pressure/action/estimated_safe_context_window）。可选传入 tokens_processed 用于动态校准数据采集。",
+                "description": "获取完整系统资源状态（内存/CPU/磁盘/GPU/温度/Agent进程），以及 Agent 决策建议（pressure/action/estimated_safe_context_window）。可选传入 tokens_processed 用于动态校准。\n\nV0.3 新增输出字段：\n- system.gpu: GPU 列表（名称/显存/温度/功耗/利用率）\n- system.thermal: CPU/GPU 温度\n- system.agents: 同机其他 AI Agent 进程\n- machine_state: 连续监控模式下的状态机",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "tokens_processed": {
                             "type": "integer",
-                            "description": "本次推理实际处理的 token 数（可选）。传入后秋毫mem 会记录校准数据点，用于动态估算参数修正。",
-                            "required": false
+                            "description": "本次推理实际处理的 token 数（可选）。传入后秋毫mem 会记录校准数据点。",
+                            "required": False
                         }
                     },
                     "required": []
@@ -125,6 +127,48 @@ def handle_list_tools(params: dict) -> dict:
                     "type": "object",
                     "properties": {},
                     "required": []
+                }
+            },
+            {
+                "name": "get_gpu_status",
+                "description": "获取 GPU 状态，列出所有检测到的 GPU 及其显存使用情况、温度、功耗、利用率和采集后端（NVML/nvidia-smi/ROCm/sysctl）",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            },
+            {
+                "name": "get_thermal_status",
+                "description": "获取 CPU/GPU 温度信息，包含 CPU 核心温度、各 GPU 温度和温度压力等级（normal/warning/critical）",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            },
+            {
+                "name": "get_agent_processes",
+                "description": "检测同机运行的其他 AI Agent 进程（如 Hermes、Claude Code、AutoGPT 等），统计数量和内存占用",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            },
+            {
+                "name": "get_calibration_status",
+                "description": "获取指定模型的校准状态，包含样本数、平均 bytes_per_token、标准差、趋势和 confidence 等级。校准可提高推理上下文窗口估算精度。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "model_name": {
+                            "type": "string",
+                            "description": "模型名称，如 llama3-8b、deepseek-v3",
+                            "required": True
+                        }
+                    },
+                    "required": ["model_name"]
                 }
             },
         ]
@@ -161,6 +205,43 @@ def handle_call_tool(params: dict) -> dict:
         guidance = data.get("agent_guidance", data)
         return {"content": [{"type": "text", "text": json.dumps(guidance, indent=2)}]}
 
+    elif name == "get_gpu_status":
+        data = run_hawkeye(["--json"])
+        if "error" in data:
+            return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
+        gpu_data = data.get("system", {}).get("gpu", [])
+        if not gpu_data:
+            # Fallback: try --gpu-list
+            list_data = run_hawkeye(["--gpu-list"])
+            return {"content": [{"type": "text", "text": json.dumps(
+                {"gpu": gpu_data, "note": "No GPU detected on this system"} if not gpu_data else {"gpu": gpu_data},
+                indent=2
+            )}]}
+        return {"content": [{"type": "text", "text": json.dumps({"gpu": gpu_data}, indent=2)}]}
+
+    elif name == "get_thermal_status":
+        data = run_hawkeye(["--json"])
+        if "error" in data:
+            return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
+        thermal_data = data.get("system", {}).get("thermal", {})
+        return {"content": [{"type": "text", "text": json.dumps(thermal_data, indent=2)}]}
+
+    elif name == "get_agent_processes":
+        data = run_hawkeye(["--json"])
+        if "error" in data:
+            return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
+        agents_data = data.get("system", {}).get("agents", {})
+        return {"content": [{"type": "text", "text": json.dumps(agents_data, indent=2)}]}
+
+    elif name == "get_calibration_status":
+        model_name = arguments.get("model_name", "")
+        if not model_name:
+            return {"content": [{"type": "text", "text": "Missing required argument: model_name"}], "isError": True}
+        data = run_hawkeye(["--calibration-stats", "--model-name", model_name])
+        if "error" in data:
+            return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
+        return {"content": [{"type": "text", "text": json.dumps(data, indent=2)}]}
+
     else:
         return {
             "content": [{"type": "text", "text": f"Unknown tool: {name}"}],
@@ -171,9 +252,7 @@ def handle_call_tool(params: dict) -> dict:
 # ==================== 主循环：JSON-RPC over stdio ====================
 
 def main():
-    """MCP Server 主循环：读取 stdin 的 JSON-RPC 请求，处理并返回。"""
-    # 先输出服务器信息到 stderr（不干扰 stdio 协议）
-    sys.stderr.write("HawkEye Mem MCP Server started\n")
+    sys.stderr.write("HawkEye Mem MCP Server v0.3.0 started\n")
     sys.stderr.flush()
 
     for line in sys.stdin:
@@ -189,7 +268,6 @@ def main():
         method = request.get("method", "")
         params = request.get("params", {})
 
-        # 处理请求
         if method == "initialize":
             result = handle_initialize(params)
             response = {"jsonrpc": "2.0", "id": req_id, "result": result}
@@ -210,7 +288,6 @@ def main():
                 response = {"jsonrpc": "2.0", "id": req_id, "result": result}
 
         elif method == "notifications/initialized":
-            # 忽略初始化通知
             continue
 
         else:
@@ -219,7 +296,6 @@ def main():
                 "message": f"Method not found: {method}"
             }}
 
-        # 输出响应到 stdout（MCP 协议）
         sys.stdout.write(json.dumps(response) + "\n")
         sys.stdout.flush()
 
