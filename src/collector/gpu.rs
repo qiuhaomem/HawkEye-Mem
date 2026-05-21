@@ -7,7 +7,6 @@
 
 // 重导出新模块中的类型和函数
 pub use crate::gpu::GpuCollector;
-pub(crate) use crate::gpu::parse_csv_line;
 
 // ============================================================================
 // 单元测试（从 V0.2 保留的兼容测试）
@@ -16,7 +15,8 @@ pub(crate) use crate::gpu::parse_csv_line;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::collector::{CollectError, CollectorOutput, GpuMetrics, GpuPressure, ResourceCollector};
+    use crate::gpu::parse_csv_line;
+    use crate::collector::{CollectError, CollectorOutput, GpuPressure, ResourceCollector};
 
     // UT-GPU-001: 解析 nvidia-smi 单 GPU 输出
     #[test]

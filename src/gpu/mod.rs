@@ -198,6 +198,7 @@ impl GpuCollector {
     // ========================================================================
 
     /// 通过执行 `rocm-smi` 并解析输出获取 AMD GPU 信息
+    #[allow(dead_code)]
     fn collect_rocm_smi(rocm_smi_path: Option<&str>) -> Result<Vec<GpuMetrics>, String> {
         let binary = rocm_smi_path.unwrap_or("rocm-smi");
 
@@ -243,6 +244,7 @@ impl GpuCollector {
     }
 
     /// 温度压力判定（辅助函数，用于 guidance 等上层模块）
+    #[allow(dead_code)]
     pub fn calc_temperature_pressure(temp_celsius: f64) -> &'static str {
         if temp_celsius > 95.0 {
             "critical"

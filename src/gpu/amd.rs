@@ -24,6 +24,7 @@ use crate::collector::{GpuMetrics, GpuPressure};
 /// ```
 ///
 /// 注：rocm-smi 各版本输出格式可能不同，此解析器采用宽松匹配策略。
+#[allow(dead_code)]
 pub fn parse_rocm_smi_output(output: &str) -> Result<Vec<GpuMetrics>, String> {
     let mut lines = output.lines();
 
