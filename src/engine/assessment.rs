@@ -397,14 +397,15 @@ mod tests {
             }),
             cpu: Some(CpuMetrics {
                 cores: 8,
-                load_avg_1m: 1.0,
-                load_avg_5m: 0.8,
-                load_avg_15m: 0.6,
+                load_avg_1m: 2.0,
+                load_avg_5m: 1.5,
+                load_avg_15m: 1.0,
                 agent_processes_percent: None,
                 pressure: CpuPressure::Low,
             }),
             gpu: None,
-            timestamp: "2026-05-20T00:00:00Z".to_string(),
+            thermal: None,
+            timestamp: "2026-01-01T00:00:00Z".to_string(),
             collection_duration_ms: 1.0,
         }
     }

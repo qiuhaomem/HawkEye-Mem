@@ -5,6 +5,7 @@ mod engine;
 mod gpu;
 mod models;
 mod state_machine;
+mod thermal;
 
 use calibration::algorithm::CalibrationEngine;
 use calibration::CalibrationStore;
@@ -662,6 +663,9 @@ fn build_json_output(
     }
     if let Some(ref gpu) = snapshot.gpu {
         system["gpu"] = serde_json::to_value(gpu).unwrap();
+    }
+    if let Some(ref thermal) = snapshot.thermal {
+        system["thermal"] = serde_json::to_value(thermal).unwrap();
     }
 
     let mut output = serde_json::json!({

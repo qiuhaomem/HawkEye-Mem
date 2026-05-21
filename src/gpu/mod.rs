@@ -12,6 +12,7 @@
 
 pub mod nvml;
 pub mod amd;
+pub mod metal;
 
 use crate::collector::{CollectError, CollectorOutput, GpuMetrics, GpuPressure, ResourceCollector};
 
@@ -254,6 +255,22 @@ impl GpuCollector {
             "normal"
         }
     }
+
+    // ========================================================================
+    // 路径D：Apple Silicon（macOS + feature = gpu）
+    // ========================================================================
+
+    /// 通过 Metal API / sysctl 获取 Apple Silicon GPU 信息
+    #[cfg(all(target_os = "macos", feature = "gpu"))]
+    fn collect_apple_silicon() -> Result<Vec<GpuMetrics>, String> {
+        metal::collect_apple_gpu()
+    }
+
+    #[cfg(not(all(target_os = "macos", feature = "gpu")))]
+    #[allow(dead_code)]
+    fn collect_apple_silicon() -> Result<Vec<GpuMetrics>, String> {
+        Err("Apple Silicon not available on this platform".to_string())
+    }
 }
 
 impl ResourceCollector for GpuCollector {
@@ -290,8 +307,16 @@ impl ResourceCollector for GpuCollector {
             }
         }
 
+        // 路径D：Apple Silicon（macOS + feature gpu）
+        #[cfg(all(target_os = "macos", feature = "gpu"))]
+        if let Ok(metrics) = Self::collect_apple_silicon() {
+            return Ok(CollectorOutput::Gpu(metrics));
+        }
+
         // 全部不可用 —— 脱敏错误信息（CR-07）
-        Err(CollectError::ResourceNotAvailable("No GPU detected (NVIDIA/AMD)".into()))
+        Err(CollectError::ResourceNotAvailable(
+            "No GPU detected (NVIDIA/AMD/Apple)".into(),
+        ))
     }
 }
 

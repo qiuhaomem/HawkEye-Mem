@@ -70,6 +70,36 @@ pub struct GpuMetrics {
 }
 
 // ============================================================================
+// 温度指标结构体（V0.3 Phase 5）
+// ============================================================================
+
+/// CPU 温度压力等级
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub enum CpuThermalPressure {
+    #[serde(rename = "normal")]
+    Normal,
+    #[serde(rename = "warning")]
+    Warning,
+    #[serde(rename = "critical")]
+    Critical,
+}
+
+/// 聚合温度指标（V0.3 Phase 5）
+#[derive(Debug, Clone, Serialize)]
+pub struct ThermalMetrics {
+    /// CPU 核心温度（°C），不可用时为 None
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cpu_temp_c: Option<f64>,
+    /// 各 GPU 温度数组，不可用时为空数组
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub gpu_temps_c: Vec<Option<f64>>,
+    /// 总压力等级
+    pub pressure: CpuThermalPressure,
+    /// 温度数据说明（CR-05：只采集不预警）
+    pub note: String,
+}
+
+// ============================================================================
 // 压力等级枚举
 // ============================================================================
 
@@ -204,6 +234,7 @@ pub enum CollectorOutput {
     Disk(DiskMetrics),
     Cpu(CpuMetrics),
     Gpu(Vec<GpuMetrics>),
+    Thermal(ThermalMetrics),
 }
 
 // ============================================================================
@@ -228,6 +259,8 @@ pub struct ResourceSnapshot {
     pub cpu: Option<CpuMetrics>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub gpu: Option<Vec<GpuMetrics>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thermal: Option<ThermalMetrics>,
     pub timestamp: String,
     pub collection_duration_ms: f64,
 }

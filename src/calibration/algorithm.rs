@@ -540,7 +540,8 @@ mod tests {
             disk: None,
             cpu: None,
             gpu: None,
-            timestamp: "test".to_string(),
+            thermal: None,
+            timestamp: String::new(),
             collection_duration_ms: 0.0,
         }
     }

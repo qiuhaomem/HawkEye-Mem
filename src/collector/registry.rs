@@ -1,7 +1,8 @@
 use super::{CollectorOutput, ResourceCollector, ResourceSnapshot};
-use super::disk::DiskCollector;
 use super::cpu::CpuCollector;
+use super::disk::DiskCollector;
 use super::gpu::GpuCollector;
+use crate::thermal::ThermalCollector;
 
 /// 采集器注册中心：管理所有启用的 Collector
 /// 每个 Collector 返回独立结果，Registry 负责组装成 ResourceSnapshot（CR-01）
@@ -46,6 +47,8 @@ impl CollectorRegistry {
         self.register(Box::new(CpuCollector));
         // GpuCollector 总被注册（无 GPU 时静默跳过，返回 ResourceNotAvailable）
         self.register(Box::new(GpuCollector));
+        // ThermalCollector 温度采集
+        self.register(Box::new(ThermalCollector));
         // DiskCollector 路径动态，在 collect_all 中动态创建
     }
 
@@ -59,6 +62,7 @@ impl CollectorRegistry {
         let mut disk = None;
         let mut cpu = None;
         let mut gpu = None;
+        let mut thermal = None;
 
         for collector in &self.collectors {
             match collector.collect() {
@@ -66,6 +70,7 @@ impl CollectorRegistry {
                 Ok(CollectorOutput::Cpu(c)) => cpu = Some(c),
                 Ok(CollectorOutput::Gpu(g)) => gpu = Some(g),
                 Ok(CollectorOutput::Disk(d)) => disk = Some(d),
+                Ok(CollectorOutput::Thermal(t)) => thermal = Some(t),
                 Err(e) => {
                     eprintln!("Warning: collector failed: {}", e);
                 }
@@ -87,6 +92,7 @@ impl CollectorRegistry {
             disk,
             cpu,
             gpu,
+            thermal,
             timestamp,
             collection_duration_ms: (duration_ms * 10.0).round() / 10.0,
         }
