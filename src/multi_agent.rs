@@ -202,7 +202,7 @@ impl ResourceCollector for MultiAgentDetector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::collector::{CollectError, CollectorOutput, ResourceCollector};
+    use crate::collector::{CollectorOutput, ResourceCollector};
 
     // UT-AG-001: 空 extra_processes 不崩溃
     #[test]
