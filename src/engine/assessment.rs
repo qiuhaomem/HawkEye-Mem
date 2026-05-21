@@ -417,6 +417,12 @@ mod tests {
                 vram_total_mb: 24576,
                 vram_used_mb: 2048,
                 pressure: GpuPressure::Low,
+                temp_celsius: None,
+                power_watts: None,
+                utilization_gpu_percent: None,
+                utilization_memory_percent: None,
+                throttle_warning: false,
+                backend: String::new(),
             }]),
             ..mock_snapshot_16gb()
         }

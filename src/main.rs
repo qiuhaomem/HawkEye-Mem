@@ -2,6 +2,7 @@ mod calibration;
 mod collector;
 mod config;
 mod engine;
+mod gpu;
 mod models;
 mod state_machine;
 

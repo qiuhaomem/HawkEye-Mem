@@ -49,6 +49,24 @@ pub struct GpuMetrics {
     pub vram_total_mb: u64,
     pub vram_used_mb: u64,
     pub pressure: GpuPressure,
+    /// GPU 温度（°C），传感器不可用时为 None
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub temp_celsius: Option<f64>,
+    /// GPU 功耗（W），传感器不可用时为 None
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub power_watts: Option<f64>,
+    /// GPU 核心利用率（%），不可用时为 None
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub utilization_gpu_percent: Option<u32>,
+    /// 显存利用率（%），不可用时为 None
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub utilization_memory_percent: Option<u32>,
+    /// 温度是否超过节流阈值（> 90°C）
+    #[serde(default)]
+    pub throttle_warning: bool,
+    /// 采集后端标识（"nvml" / "nvidia-smi" / "rocm-smi"）
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub backend: String,
 }
 
 // ============================================================================
