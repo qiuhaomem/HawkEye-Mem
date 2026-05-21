@@ -8,13 +8,43 @@ pub struct AppConfig {
     pub directories: Option<DirectoriesConfig>,
     #[allow(dead_code)]
     pub gpu: Option<GpuConfig>,
+    #[allow(dead_code)]
+    pub calibration: Option<CalibrationConfig>,
+    #[allow(dead_code)]
+    pub state_machine: Option<StateMachineConfig>,
+    #[allow(dead_code)]
+    pub multi_agent: Option<MultiAgentConfig>,
 }
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
 pub struct GpuConfig {
-    /// AMD ROCm `rocm-smi` 自定义路径（CR-03）
     pub rocm_smi_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+pub struct CalibrationConfig {
+    pub enabled: Option<bool>,
+    pub max_samples: Option<usize>,
+    pub min_samples_for_calibrated: Option<usize>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[allow(dead_code)]
+pub struct StateMachineConfig {
+    pub warning_seconds: Option<u64>,
+    pub critical_seconds: Option<u64>,
+    pub recovery_seconds: Option<u64>,
+    pub min_samples_warning: Option<usize>,
+    pub min_samples_critical: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+pub struct MultiAgentConfig {
+    pub enabled: Option<bool>,
+    pub extra_process_names: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -90,7 +120,7 @@ mod tests {
         let dir = std::env::temp_dir().join("hawkeye_test_cf002");
         let _ = std::fs::create_dir_all(&dir);
         let path = dir.join("config.toml");
-        std::fs::write(&path, b"k v").unwrap();  // TOML需要等号
+        std::fs::write(&path, b"k v").unwrap();
         let result = AppConfig::load(Some(path.to_str().unwrap()));
         let _ = std::fs::remove_dir_all(&dir);
         assert!(result.is_err(), "无效TOML应返回Err");
@@ -109,7 +139,6 @@ mod tests {
     // UT-CF-004: 默认路径无文件静默跳过
     #[test]
     fn test_ut_cf_004_default_path_silent() {
-        // 使用临时 HOME 避免本地 ~/.config/hawk-eye-mem/config.toml 干扰
         let tmp = tempfile::TempDir::new().unwrap();
         let old_home = std::env::var_os("HOME");
         std::env::set_var("HOME", tmp.path());
@@ -120,25 +149,46 @@ mod tests {
         } else {
             std::env::remove_var("HOME");
         }
-        assert!(result.is_ok(), "默认路径无文件应返回Ok");
-        let config = result.unwrap();
-        assert!(config.is_none(), "无配置路径时应为None");
+        assert!(result.is_ok(), "默认路径无文件应返回Ok(None)");
+        assert!(result.unwrap().is_none(), "应为None");
     }
 
-    // UT-CF-005: 环境变量覆盖默认路径
+    // UT-CF-005: 新配置段解析
     #[test]
-    fn test_ut_cf_005_env_override() {
+    fn test_ut_cf_005_new_sections() {
         let dir = std::env::temp_dir().join("hawkeye_test_cf005");
         let _ = std::fs::create_dir_all(&dir);
         let path = dir.join("config.toml");
-        std::fs::write(&path, b"[model]\nbytes_per_token = 3000").unwrap();
-        std::env::set_var("HAWKEYE_MEM_CONFIG", path.to_str().unwrap());
-        let result = AppConfig::load(None);
-        std::env::remove_var("HAWKEYE_MEM_CONFIG");
+        let toml_content = r#"
+[calibration]
+enabled = true
+max_samples = 100
+min_samples_for_calibrated = 10
+
+[state_machine]
+warning_seconds = 30
+critical_seconds = 60
+recovery_seconds = 120
+min_samples_warning = 3
+min_samples_critical = 5
+
+[multi_agent]
+enabled = true
+extra_process_names = ["my-agent", "test-agent"]
+
+[gpu]
+rocm_smi_path = "/opt/rocm/bin/rocm-smi"
+"#;
+        std::fs::write(&path, toml_content).unwrap();
+        let result = AppConfig::load(Some(path.to_str().unwrap()));
         let _ = std::fs::remove_dir_all(&dir);
-        assert!(result.is_ok(), "环境变量指定路径应返回Ok");
-        if let Ok(Some(config)) = result {
-            assert_eq!(config.model.unwrap().bytes_per_token.unwrap(), 3000);
-        }
+        assert!(result.is_ok(), "新配置段应正常解析: {:?}", result.err());
+        let config = result.unwrap().unwrap();
+        assert!(config.calibration.is_some(), "calibration 段应存在");
+        assert!(config.state_machine.is_some(), "state_machine 段应存在");
+        assert!(config.multi_agent.is_some(), "multi_agent 段应存在");
+        assert!(config.gpu.is_some(), "gpu 段应存在");
+        let ma = config.multi_agent.unwrap();
+        assert_eq!(ma.extra_process_names.unwrap().len(), 2);
     }
 }

@@ -541,6 +541,7 @@ mod tests {
             cpu: None,
             gpu: None,
             thermal: None,
+            agents: None,
             timestamp: String::new(),
             collection_duration_ms: 0.0,
         }

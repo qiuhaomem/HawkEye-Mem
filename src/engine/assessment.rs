@@ -405,6 +405,7 @@ mod tests {
             }),
             gpu: None,
             thermal: None,
+            agents: None,
             timestamp: "2026-01-01T00:00:00Z".to_string(),
             collection_duration_ms: 1.0,
         }

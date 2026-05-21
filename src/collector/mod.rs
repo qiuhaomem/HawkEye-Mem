@@ -49,22 +49,16 @@ pub struct GpuMetrics {
     pub vram_total_mb: u64,
     pub vram_used_mb: u64,
     pub pressure: GpuPressure,
-    /// GPU 温度（°C），传感器不可用时为 None
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temp_celsius: Option<f64>,
-    /// GPU 功耗（W），传感器不可用时为 None
     #[serde(skip_serializing_if = "Option::is_none")]
     pub power_watts: Option<f64>,
-    /// GPU 核心利用率（%），不可用时为 None
     #[serde(skip_serializing_if = "Option::is_none")]
     pub utilization_gpu_percent: Option<u32>,
-    /// 显存利用率（%），不可用时为 None
     #[serde(skip_serializing_if = "Option::is_none")]
     pub utilization_memory_percent: Option<u32>,
-    /// 温度是否超过节流阈值（> 90°C）
     #[serde(default)]
     pub throttle_warning: bool,
-    /// 采集后端标识（"nvml" / "nvidia-smi" / "rocm-smi"）
     #[serde(skip_serializing_if = "String::is_empty")]
     pub backend: String,
 }
@@ -73,7 +67,6 @@ pub struct GpuMetrics {
 // 温度指标结构体（V0.3 Phase 5）
 // ============================================================================
 
-/// CPU 温度压力等级
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub enum CpuThermalPressure {
     #[serde(rename = "normal")]
@@ -84,18 +77,38 @@ pub enum CpuThermalPressure {
     Critical,
 }
 
-/// 聚合温度指标（V0.3 Phase 5）
 #[derive(Debug, Clone, Serialize)]
 pub struct ThermalMetrics {
-    /// CPU 核心温度（°C），不可用时为 None
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cpu_temp_c: Option<f64>,
-    /// 各 GPU 温度数组，不可用时为空数组
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub gpu_temps_c: Vec<Option<f64>>,
-    /// 总压力等级
     pub pressure: CpuThermalPressure,
-    /// 温度数据说明（CR-05：只采集不预警）
+    pub note: String,
+}
+
+// ============================================================================
+// 多 Agent 检测结构体（V0.3 Phase 6）
+// ============================================================================
+
+/// Agent 进程信息
+#[derive(Debug, Clone, Serialize)]
+pub struct AgentProcess {
+    pub name: String,
+    pub pid: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memory_rss_mb: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cpu_percent: Option<f64>,
+}
+
+/// 多 Agent 检测结果
+#[derive(Debug, Clone, Serialize)]
+pub struct AgentDetection {
+    pub agents: Vec<AgentProcess>,
+    pub count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub global_pressure: Option<String>,
     pub note: String,
 }
 
@@ -127,7 +140,6 @@ impl std::fmt::Display for PressureLevel {
 }
 
 impl PressureLevel {
-    /// 压力优先级数值（0=最低压力，3=最高压力）
     pub fn priority(&self) -> u8 {
         match self {
             PressureLevel::Low => 0,
@@ -137,7 +149,6 @@ impl PressureLevel {
         }
     }
 
-    /// 返回两者中压力更低（更宽松）的一个
     pub fn min(a: Self, b: Self) -> Self {
         if a.priority() <= b.priority() { a } else { b }
     }
@@ -224,7 +235,7 @@ pub enum CollectError {
 }
 
 // ============================================================================
-// Collector 输出枚举（CR-01：各 Collector 返回独立结果）
+// Collector 输出枚举
 // ============================================================================
 
 #[allow(dead_code)]
@@ -235,10 +246,11 @@ pub enum CollectorOutput {
     Cpu(CpuMetrics),
     Gpu(Vec<GpuMetrics>),
     Thermal(ThermalMetrics),
+    Agent(AgentDetection),
 }
 
 // ============================================================================
-// ResourceCollector trait（统一接口）
+// ResourceCollector trait
 // ============================================================================
 
 pub trait ResourceCollector: Send + Sync {
@@ -246,7 +258,7 @@ pub trait ResourceCollector: Send + Sync {
 }
 
 // ============================================================================
-// 资源快照（Registry 组装后的结果）
+// 资源快照
 // ============================================================================
 
 #[derive(Debug, Clone, Serialize)]
@@ -261,6 +273,8 @@ pub struct ResourceSnapshot {
     pub gpu: Option<Vec<GpuMetrics>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thermal: Option<ThermalMetrics>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agents: Option<AgentDetection>,
     pub timestamp: String,
     pub collection_duration_ms: f64,
 }

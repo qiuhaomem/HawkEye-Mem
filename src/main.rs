@@ -6,6 +6,7 @@ mod gpu;
 mod models;
 mod state_machine;
 mod thermal;
+mod multi_agent;
 
 use calibration::algorithm::CalibrationEngine;
 use calibration::CalibrationStore;
@@ -77,6 +78,11 @@ struct Cli {
     /// 清空指定模型的校准数据（需指定 --model-name）
     #[arg(long, requires = "model_name")]
     reset_calibration: bool,
+
+    // === V0.3 Phase 6 新增参数 ===
+    /// 列出检测到的 GPU 及其采集方式（NVML/nvidia-smi/ROCm/Metal）
+    #[arg(long)]
+    gpu_list: bool,
 }
 
 fn main() {
@@ -187,6 +193,35 @@ fn main() {
         return;
     }
 
+    // --gpu-list：列出检测到的 GPU 及其采集后端
+    if cli.gpu_list {
+        use collector::ResourceCollector;
+        let gpu_collector = gpu::GpuCollector;
+        match gpu_collector.collect() {
+            Ok(collector::CollectorOutput::Gpu(gpus)) => {
+                println!("\n  GPU List:");
+                println!("  {:-<60}", "");
+                for gpu in &gpus {
+                    println!(
+                        "  {:<30} | {}MB/{}MB | {}",
+                        gpu.name,
+                        gpu.vram_used_mb,
+                        gpu.vram_total_mb,
+                        gpu.backend
+                    );
+                }
+                println!();
+            }
+            Err(e) => {
+                eprintln!("  No GPU detected: {}", e);
+            }
+            _ => {
+                eprintln!("  Unexpected output from GPU collector");
+            }
+        }
+        return;
+    }
+
     // === V0.3 校准引擎初始化 ===
     let calibration_path = get_calibration_path();
     let csv_store = CsvStore::new(calibration_path, 100);
@@ -237,6 +272,9 @@ fn main() {
         if let Ok(Some(cfg)) = config::AppConfig::load(cli.config.as_deref()) {
             if let Some(dirs) = cfg.directories {
                 registry.set_directories(dirs.model_cache);
+            }
+            if let Some(ma) = cfg.multi_agent {
+                registry.set_extra_agent_processes(ma.extra_process_names);
             }
         }
         let snapshot = registry.collect_all();
@@ -666,6 +704,9 @@ fn build_json_output(
     }
     if let Some(ref thermal) = snapshot.thermal {
         system["thermal"] = serde_json::to_value(thermal).unwrap();
+    }
+    if let Some(ref agents) = snapshot.agents {
+        system["agents"] = serde_json::to_value(agents).unwrap();
     }
 
     let mut output = serde_json::json!({
