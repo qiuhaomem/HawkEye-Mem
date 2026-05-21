@@ -12,6 +12,7 @@ pub struct CalibrationPoint {
 }
 
 // === CalibrationStore trait ===
+#[allow(dead_code)]
 pub trait CalibrationStore: Send + Sync {
     /// 追加一条校准数据，model_name是原始模型名（内部会自动哈希）
     fn append(&self, point: CalibrationPoint, model_name: &str) -> Result<()>;

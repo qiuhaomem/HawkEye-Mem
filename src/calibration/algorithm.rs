@@ -13,6 +13,7 @@ pub struct CalibrationEngine<S: CalibrationStore> {
     celebrated_models: std::collections::HashSet<String>,
 }
 
+#[allow(dead_code)]
 impl<S: CalibrationStore> CalibrationEngine<S> {
     pub fn new(store: S) -> Self {
         Self {
@@ -160,6 +161,7 @@ pub enum CalibrationStatus {
 
 /// 校准阶段（CR-08 叙事性五阶段）
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum CalibrationStage {
     NotStarted,
     JustStarted { count: usize },
@@ -195,6 +197,7 @@ impl std::fmt::Display for CalibrationStage {
 }
 
 /// 校准统计（供 --calibration-stats 使用）
+#[allow(dead_code)]
 pub struct CalibrationStats {
     pub sample_count: usize,
     pub avg_bytes_per_token: f64,
