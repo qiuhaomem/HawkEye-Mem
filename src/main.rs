@@ -6,6 +6,7 @@ mod models;
 mod state_machine;
 
 use calibration::algorithm::CalibrationEngine;
+use calibration::CalibrationStore;
 use calibration::csv_store::CsvStore;
 use clap::Parser;
 use collector::registry::CollectorRegistry;
@@ -62,6 +63,18 @@ struct Cli {
     /// 本次推理实际处理的 token 数（CR-01 MCP Tool 传入）
     #[arg(long)]
     tokens_processed: Option<u64>,
+
+    /// 校准的模型名（启用校准模式）
+    #[arg(long)]
+    model_name: Option<String>,
+
+    /// 查看校准统计信息（需指定 --model-name）
+    #[arg(long, requires = "model_name")]
+    calibration_stats: bool,
+
+    /// 清空指定模型的校准数据（需指定 --model-name）
+    #[arg(long, requires = "model_name")]
+    reset_calibration: bool,
 }
 
 fn main() {
@@ -107,6 +120,68 @@ fn main() {
     // === --can-run：部署评估模式 ===
     if cli.can_run {
         handle_can_run(&cli);
+        return;
+    }
+
+    // === V0.3 校准相关参数处理 ===
+    let cal_base_path = || -> PathBuf {
+        dirs_next::home_dir()
+            .unwrap_or_else(|| PathBuf::from("/tmp"))
+            .join(".config/hawk-eye-mem")
+    };
+
+    // --calibration-stats：查看校准统计
+    if cli.calibration_stats {
+        if let Some(ref model) = cli.model_name {
+            let path = cal_base_path();
+            let store = calibration::csv_store::CsvStore::new(
+                path.join("calibration"),
+                100,
+            );
+            let engine = calibration::algorithm::CalibrationEngine::new(store);
+            let stats = engine.stats(model).unwrap_or_else(|e| {
+                eprintln!("Failed to get calibration stats: {}", e);
+                std::process::exit(1);
+            });
+            let params = engine.get_corrected_params(model).unwrap_or(None);
+
+            println!("校准状态 — 模型: \"{}\"", model);
+            println!("─────────────────────────────────────────");
+            println!("{}", stats.stage);
+            if let Some(ref p) = params {
+                println!("加权平均:  {} bytes/token", p.avg_bytes_per_token);
+                println!("标准差:    {}", p.calibration.std_dev);
+                println!("趋势:      {}", p.calibration.trend);
+                println!("安全边际:  {}%", p.safety_margin);
+                println!("置信度:    {:?}", p.confidence);
+            } else if stats.sample_count > 0 {
+                println!(
+                    "样本不足:  还需 {} 次才能启动校准算法",
+                    10 - stats.sample_count.min(10)
+                );
+            }
+        }
+        return;
+    }
+
+    // --reset-calibration：清空校准数据
+    if cli.reset_calibration {
+        if let Some(ref model) = cli.model_name {
+            let path = cal_base_path();
+            let store = calibration::csv_store::CsvStore::new(
+                path.join("calibration"),
+                100,
+            );
+            let model_hash = calibration::hash_model_name(model).unwrap_or_else(|e| {
+                eprintln!("Failed to hash model name: {}", e);
+                std::process::exit(1);
+            });
+            store.clear_model(&model_hash).unwrap_or_else(|e| {
+                eprintln!("Failed to clear calibration data: {}", e);
+                std::process::exit(1);
+            });
+            println!("已清空模型 \"{}\" 的校准数据", model);
+        }
         return;
     }
 
