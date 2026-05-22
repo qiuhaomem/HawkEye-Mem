@@ -178,13 +178,11 @@ jobs:
         with:
           target: aarch64-apple-darwin,x86_64-apple-darwin
 
-      - name: Setup macOS cross-compilation toolchain
-        uses: messense/macos-cross-toolchains@v1.2.0
-        with:
-          target: aarch64-apple-darwin
+      - name: Install cargo-zigbuild
+        run: cargo install cargo-zigbuild
 
       - name: Build for Apple Silicon (aarch64)
-        run: cargo build --release --target aarch64-apple-darwin
+        run: cargo zigbuild --release --target aarch64-apple-darwin
         env:
           CARGO_HOME: ${{ runner.temp }}/cargo-home
 
@@ -194,13 +192,8 @@ jobs:
           ls -lh "$BIN"
           file "$BIN"
 
-      - name: Setup x86_64 cross-compilation toolchain
-        uses: messense/macos-cross-toolchains@v1.2.0
-        with:
-          target: x86_64-apple-darwin
-
       - name: Build for Intel Mac (x86_64)
-        run: cargo build --release --target x86_64-apple-darwin
+        run: cargo zigbuild --release --target x86_64-apple-darwin
         env:
           CARGO_HOME: ${{ runner.temp }}/cargo-home
 
