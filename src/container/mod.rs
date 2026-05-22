@@ -219,6 +219,7 @@ mod tests {
     // ========================================================================
 
     /// 创建模拟的 cgroup v1 文件系统
+    #[allow(dead_code)]
     struct MockCgroupV1 {
         _dir: TempDir,
         mem_limit_path: String,
@@ -279,6 +280,7 @@ mod tests {
     }
 
     /// 创建模拟的 cgroup v2 文件系统
+    #[allow(dead_code)]
     struct MockCgroupV2 {
         _dir: TempDir,
         mem_max_path: String,
