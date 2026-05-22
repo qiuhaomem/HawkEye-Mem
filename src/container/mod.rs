@@ -224,7 +224,7 @@ mod tests {
         mem_limit_path: String,
         cpu_quota_path: String,
         cpu_period_path: String,
-        cgroup_proc_path: String,
+        _cgroup_proc_path: String,
         meminfo_path: String,
     }
 
@@ -272,7 +272,7 @@ mod tests {
                 mem_limit_path: mem_limit_path.to_string_lossy().to_string(),
                 cpu_quota_path: cpu_quota_path.to_string_lossy().to_string(),
                 cpu_period_path: cpu_period_path.to_string_lossy().to_string(),
-                cgroup_proc_path: cgroup_proc_path.to_string_lossy().to_string(),
+                _cgroup_proc_path: cgroup_proc_path.to_string_lossy().to_string(),
                 meminfo_path: meminfo_path.to_string_lossy().to_string(),
             }
         }
@@ -283,7 +283,7 @@ mod tests {
         _dir: TempDir,
         mem_max_path: String,
         cpu_max_path: String,
-        cgroup_proc_path: String,
+        _cgroup_proc_path: String,
     }
 
     impl MockCgroupV2 {
@@ -322,7 +322,7 @@ mod tests {
                 _dir: dir,
                 mem_max_path: mem_max_path.to_string_lossy().to_string(),
                 cpu_max_path: cpu_max_path.to_string_lossy().to_string(),
-                cgroup_proc_path: cgroup_proc_path.to_string_lossy().to_string(),
+                _cgroup_proc_path: cgroup_proc_path.to_string_lossy().to_string(),
             }
         }
     }
