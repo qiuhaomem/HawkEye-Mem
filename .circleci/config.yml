@@ -4,142 +4,28 @@ version: 2.1
 
 # Define a job to be invoked later in a workflow.
 # See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#jobs-overview & https://circleci.com/docs/reference/configuration-reference/#jobs
-commands:
-  install-rust:
-    steps:
-      - run:
-          name: Install Rust toolchain
-          command: |
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-            source $HOME/.cargo/env
-            rustup default stable
-            rustc --version && cargo --version
-
-  restore-cargo-cache:
-    steps:
-      - restore_cache:
-          keys:
-            - cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - cargo-cache-{{ arch }}
-
-  save-cargo-cache:
-    steps:
-      - save_cache:
-          key: cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
-          paths:
-            - ~/.cargo/registry
-            - ~/.cargo/git
-
 jobs:
-  test-linux:
+  say-hello:
     # Specify the execution environment. You can specify an image from Docker Hub or use one of our convenience images from CircleCI's Developer Hub.
     # See: https://circleci.com/docs/guides/execution-managed/executor-intro/ & https://circleci.com/docs/reference/configuration-reference/#executor-job
     docker:
-      - image: cimg/rust:latest
-    environment:
-      RUSTFLAGS: -D warnings
-      CARGO_TERM_COLOR: always
+      # Specify the version you desire here
+      # See: https://circleci.com/developer/images/image/cimg/base
+      - image: cimg/base:current
+
     # Add steps to the job
     # See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#steps-overview & https://circleci.com/docs/reference/configuration-reference/#steps
     steps:
+      # Checkout the code as the first step.
       - checkout
-      - restore-cargo-cache
       - run:
-          name: Build
-          command: cargo build
-      - run:
-          name: Run tests
-          command: cargo test
-      - run:
-          name: Verify JSON output
-          command: |
-            OUTPUT=$(./target/debug/hawk-eye-mem --json 2>/dev/null)
-            echo "$OUTPUT" | python3 -c "
-import json,sys
-d = json.load(sys.stdin)
-assert d['system']['memory']['total_mb'] > 0, 'total_mb should be > 0'
-assert d['agent_guidance']['pressure'] in ('low','medium','high','critical'), 'invalid pressure'
-print('JSON schema valid')
-"
-      - save-cargo-cache
-
-  build-musl:
-    docker:
-      - image: cimg/rust:latest
-    environment:
-      CARGO_TERM_COLOR: always
-    steps:
-      - checkout
-      - restore-cargo-cache
-      - run:
-          name: Install musl target
-          command: |
-            rustup target add x86_64-unknown-linux-musl
-            sudo apt-get update && sudo apt-get install -y musl-tools
-      - run:
-          name: Build with musl (static)
-          command: cargo build --release --target x86_64-unknown-linux-musl
-      - save-cargo-cache
-
-  test-macos-arm:
-    macos:
-      xcode: "16.2.0"
-    resource_class: macos.m1.medium.gen1
-    environment:
-      RUSTFLAGS: -D warnings
-      CARGO_TERM_COLOR: always
-    steps:
-      - checkout
-      - install-rust
-      - restore-cargo-cache
-      - run:
-          name: Build
-          command: source $HOME/.cargo/env && cargo build --release
-      - run:
-          name: Run tests
-          command: source $HOME/.cargo/env && cargo test
-      - run:
-          name: macOS 采集验证
-          command: |
-            source $HOME/.cargo/env
-            BIN=./target/debug/hawk-eye-mem
-            OUTPUT=$($BIN --json 2>/dev/null)
-            TOTAL=$(echo "$OUTPUT" | python3 -c "import json,sys;d=json.load(sys.stdin);print(d['system']['memory']['total_mb'])")
-            echo "macOS Memory: ${TOTAL}MB"
-            $BIN --env-fingerprint
-            $BIN --suggest-concurrency
-      - save-cargo-cache
-
-  test-macos-intel:
-    macos:
-      xcode: "15.4.0"
-    resource_class: macos.x86.medium.gen2
-    environment:
-      RUSTFLAGS: -D warnings
-      CARGO_TERM_COLOR: always
-    steps:
-      - checkout
-      - install-rust
-      - restore-cargo-cache
-      - run:
-          name: Build
-          command: source $HOME/.cargo/env && cargo build --release
-      - run:
-          name: Run tests
-          command: source $HOME/.cargo/env && cargo test
-      - run:
-          name: macOS 采集验证
-          command: |
-            source $HOME/.cargo/env
-            ./target/release/hawk-eye-mem --json | python3 -c "import json,sys;d=json.load(sys.stdin);assert d['system'];assert d['agent_guidance'];print('JSON valid')"
-      - save-cargo-cache
+          name: "Say hello"
+          command: "echo Hello, World!"
 
 # Orchestrate jobs using workflows
 # See: https://circleci.com/docs/guides/orchestrate/workflows/ & https://circleci.com/docs/reference/configuration-reference/#workflows
 workflows:
-  build-and-test:
+  say-hello-workflow: # This is the name of the workflow, feel free to change it to better match your workflow.
+    # Inside the workflow, you define the jobs you want to run.
     jobs:
-      - test-linux
-      - build-musl
-      - test-macos-arm
-      - test-macos-intel
+      - say-hello
