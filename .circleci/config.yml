@@ -37,7 +37,12 @@ jobs:
       RUSTFLAGS: -D warnings
       CARGO_TERM_COLOR: always
     steps:
-      - checkout
+      - run:
+          name: "Manual checkout (HTTPS)"
+          command: |
+            git clone --depth 1 https://github.com/qiuhaomem/-HawkEye-Mem.git /tmp/repo
+            cp -a /tmp/repo/. .
+            rm -rf /tmp/repo
       - install-rust
       - restore-cargo-cache
       - run:
@@ -53,7 +58,12 @@ jobs:
       image: ubuntu-2204:current
     resource_class: medium
     steps:
-      - checkout
+      - run:
+          name: "Manual checkout (HTTPS)"
+          command: |
+            git clone --depth 1 https://github.com/qiuhaomem/-HawkEye-Mem.git /tmp/repo
+            cp -a /tmp/repo/. .
+            rm -rf /tmp/repo
       - install-rust
       - restore-cargo-cache
       - run:
