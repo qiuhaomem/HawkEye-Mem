@@ -4,7 +4,7 @@
 # 给同事的 MacBook / 其他机器用的
 #
 # 用法:
-#   curl -fsSL https://raw.githubusercontent.com/qiuhaomem/-HawkEye-Mem/main/scripts/install-hawkeye-mcp.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/qiuhaomem/HawkEye-Mem/main/scripts/install-hawkeye-mcp.sh | bash
 #   或直接在项目里: bash scripts/install-hawkeye-mcp.sh
 #
 
@@ -27,7 +27,7 @@ ARCH="$(uname -m)"
 echo -e "${YELLOW}🔍 检测系统:${NC} $OS $ARCH"
 
 BIN_NAME="hawk-eye-mem"
-REPO="qiuhaomem/-HawkEye-Mem"
+REPO="qiuhaomem/HawkEye-Mem"
 VERSION="v0.3.0"
 INSTALL_DIR="${HOME}/.cargo/bin"
 MCP_SCRIPT="hawkeye-mcp-server.py"

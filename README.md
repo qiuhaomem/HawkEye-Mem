@@ -60,7 +60,7 @@ AI 程序拿到这个，不用理解"内存"是什么，不用算百分比，它
 **从源码编译**
 
 ```bash
-git clone https://github.com/qiuhaomem/-HawkEye-Mem.git
+git clone https://github.com/qiuhaomem/HawkEye-Mem.git
 cd -HawkEye-Mem
 cargo build --release
 sudo cp target/release/hawk-eye-mem /usr/local/bin/
@@ -70,11 +70,11 @@ sudo cp target/release/hawk-eye-mem /usr/local/bin/
 
 **直接下载二进制**
 
-从 [GitHub Releases](https://github.com/qiuhaomem/-HawkEye-Mem/releases) 下载预编译的二进制文件：
+从 [GitHub Releases](https://github.com/qiuhaomem/HawkEye-Mem/releases) 下载预编译的二进制文件：
 
 ```bash
 # Linux (musl 静态链接，任何发行版都能跑)
-curl -L -o hawk-eye-mem https://github.com/qiuhaomem/-HawkEye-Mem/releases/download/v0.2.0/hawk-eye-mem-v0.2.0-linux-x86-64-musl
+curl -L -o hawk-eye-mem https://github.com/qiuhaomem/HawkEye-Mem/releases/download/v0.2.0/hawk-eye-mem-v0.2.0-linux-x86-64-musl
 chmod +x hawk-eye-mem
 ./hawk-eye-mem --help
 ```
@@ -286,7 +286,7 @@ hawk-eye-mem --init-config
 
 V0.2 是一个早期版本，我们正在收集反馈。如果你试用了 `--can-run`，请告诉我们：检测准不准？有没有帮到你？
 
-👉 [反馈 Issue](https://github.com/qiuhaomem/-HawkEye-Mem/issues/1)
+👉 [反馈 Issue](https://github.com/qiuhaomem/HawkEye-Mem/issues/1)
 
 你的每一条反馈都会直接影响 V0.3 的功能规划。
 

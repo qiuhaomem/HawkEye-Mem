@@ -60,7 +60,7 @@ Install it, configure it, and it watches in the background. Before every heavy t
 **From source**
 
 ```bash
-git clone https://github.com/qiuhaomem/-HawkEye-Mem.git
+git clone https://github.com/qiuhaomem/HawkEye-Mem.git
 cd -HawkEye-Mem
 cargo build --release
 sudo cp target/release/hawk-eye-mem /usr/local/bin/
@@ -70,11 +70,11 @@ You'll need Rust: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | s
 
 **Pre-built binaries**
 
-Download from [GitHub Releases](https://github.com/qiuhaomem/-HawkEye-Mem/releases):
+Download from [GitHub Releases](https://github.com/qiuhaomem/HawkEye-Mem/releases):
 
 ```bash
 # Linux (musl, statically linked, runs on any distro)
-curl -L -o hawk-eye-mem https://github.com/qiuhaomem/-HawkEye-Mem/releases/download/v0.2.0/hawk-eye-mem-v0.2.0-linux-x86-64-musl
+curl -L -o hawk-eye-mem https://github.com/qiuhaomem/HawkEye-Mem/releases/download/v0.2.0/hawk-eye-mem-v0.2.0-linux-x86-64-musl
 chmod +x hawk-eye-mem
 ./hawk-eye-mem --help
 ```
@@ -285,7 +285,7 @@ It won't slow you down. Each check takes under 1ms. The binary is under 1MB.
 
 V0.2 is an early release and we're actively collecting feedback. If you've tried `--can-run`, let us know: how accurate was it? Did it help?
 
-👉 [Feedback Issue](https://github.com/qiuhaomem/-HawkEye-Mem/issues/1)
+👉 [Feedback Issue](https://github.com/qiuhaomem/HawkEye-Mem/issues/1)
 
 Every piece of feedback directly shapes V0.3's feature planning.
 

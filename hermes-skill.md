@@ -29,7 +29,7 @@ AI-Native system resource monitoring CLI — RAM, GPU, temperature, Agent proces
 - **Container awareness** — respect Docker/K8s cgroup limits
 
 **Binary name:** `hawk-eye-mem`
-**Repo:** `github.com/qiuhaomem/-HawkEye-Mem`
+**Repo:** `github.com/qiuhaomem/HawkEye-Mem`
 
 ## Overview
 
@@ -272,7 +272,7 @@ The `agent_guidance` field is designed specifically for Agent consumption:
 
 ```bash
 # Quick install (macOS/Linux): run this on target machine
-curl -fsSL https://raw.githubusercontent.com/qiuhaomem/-HawkEye-Mem/main/scripts/install-hawkeye-mcp.sh | bash
+curl -fsSL https://raw.githubusercontent.com/qiuhaomem/HawkEye-Mem/main/scripts/install-hawkeye-mcp.sh | bash
 
 # Or manual registration
 hermes mcp add hawk-eye-mem --command python3 --args /path/to/hawkeye-mcp-server.py
@@ -318,7 +318,7 @@ hermes mcp add hawk-eye-mem --command python3 --args /path/to/hawkeye-mcp-server
 
 ```bash
 # 一键脚本（推荐——自动检测 OS/ARCH，编译/下载 binary，注册 MCP，跑测试）
-curl -fsSL https://raw.githubusercontent.com/qiuhaomem/-HawkEye-Mem/main/scripts/install-hawkeye-mcp.sh | bash
+curl -fsSL https://raw.githubusercontent.com/qiuhaomem/HawkEye-Mem/main/scripts/install-hawkeye-mcp.sh | bash
 ```
 
 脚本能力：

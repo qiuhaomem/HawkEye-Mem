@@ -35,7 +35,7 @@
 
 ```bash
 # 克隆
-git clone https://github.com/qiuhaomem/-HawkEye-Mem.git
+git clone https://github.com/qiuhaomem/HawkEye-Mem.git
 cd -HawkEye-Mem
 
 # 编译

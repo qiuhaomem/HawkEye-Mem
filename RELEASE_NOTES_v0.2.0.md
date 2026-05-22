@@ -36,19 +36,19 @@ hawk-eye-mem --can-run --model llama3-8b
 ### Linux (x86-64)
 ```bash
 # 静态链接版（推荐，任何 Linux 都能跑）
-curl -L -o hawk-eye-mem https://github.com/qiuhaomem/-HawkEye-Mem/releases/download/v0.2.0/hawk-eye-mem-v0.2.0-linux-x86-64-musl
+curl -L -o hawk-eye-mem https://github.com/qiuhaomem/HawkEye-Mem/releases/download/v0.2.0/hawk-eye-mem-v0.2.0-linux-x86-64-musl
 chmod +x hawk-eye-mem
 ./hawk-eye-mem --help
 
 # glibc 版
-curl -L -o hawk-eye-mem https://github.com/qiuhaomem/-HawkEye-Mem/releases/download/v0.2.0/hawk-eye-mem-v0.2.0-linux-x86-64-glibc
+curl -L -o hawk-eye-mem https://github.com/qiuhaomem/HawkEye-Mem/releases/download/v0.2.0/hawk-eye-mem-v0.2.0-linux-x86-64-glibc
 chmod +x hawk-eye-mem
 ./hawk-eye-mem --help
 ```
 
 ### macOS (ARM64)
 ```bash
-curl -L -o hawk-eye-mem https://github.com/qiuhaomem/-HawkEye-Mem/releases/download/v0.2.0/hawk-eye-mem-v0.2.0-macos-arm64
+curl -L -o hawk-eye-mem https://github.com/qiuhaomem/HawkEye-Mem/releases/download/v0.2.0/hawk-eye-mem-v0.2.0-macos-arm64
 chmod +x hawk-eye-mem
 xattr -d com.apple.quarantine hawk-eye-mem  # macOS 需要
 ./hawk-eye-mem --help
@@ -56,7 +56,7 @@ xattr -d com.apple.quarantine hawk-eye-mem  # macOS 需要
 
 ### 从源码
 ```bash
-git clone https://github.com/qiuhaomem/-HawkEye-Mem.git
+git clone https://github.com/qiuhaomem/HawkEye-Mem.git
 cd -HawkEye-Mem
 cargo install --path .
 hawk-eye-mem --can-run --model llama3-8b

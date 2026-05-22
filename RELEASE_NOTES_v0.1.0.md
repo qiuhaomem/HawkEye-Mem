@@ -23,7 +23,7 @@
 ```bash
 # 静态链接版（musl，不依赖 glibc，任何 Linux 都能跑）
 curl -L -o hawk-eye-mem \
-  https://github.com/qiuhaomem/-HawkEye-Mem/releases/download/v0.1.0/hawk-eye-mem-v0.1.0-linux-x86-64-musl
+  https://github.com/qiuhaomem/HawkEye-Mem/releases/download/v0.1.0/hawk-eye-mem-v0.1.0-linux-x86-64-musl
 chmod +x hawk-eye-mem
 ./hawk-eye-mem --help
 ```
@@ -32,7 +32,7 @@ chmod +x hawk-eye-mem
 
 ```bash
 curl -L -o hawk-eye-mem \
-  https://github.com/qiuhaomem/-HawkEye-Mem/releases/download/v0.1.0/hawk-eye-mem-v0.1.0-macos-arm64
+  https://github.com/qiuhaomem/HawkEye-Mem/releases/download/v0.1.0/hawk-eye-mem-v0.1.0-macos-arm64
 chmod +x hawk-eye-mem
 xattr -d com.apple.quarantine hawk-eye-mem  # macOS 需要
 ./hawk-eye-mem --help
@@ -41,7 +41,7 @@ xattr -d com.apple.quarantine hawk-eye-mem  # macOS 需要
 ### 从源码安装
 
 ```bash
-git clone https://github.com/qiuhaomem/-HawkEye-Mem.git
+git clone https://github.com/qiuhaomem/HawkEye-Mem.git
 cd -HawkEye-Mem
 cargo install --path .
 hawk-eye-mem
