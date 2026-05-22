@@ -178,6 +178,9 @@ jobs:
         with:
           target: aarch64-apple-darwin,x86_64-apple-darwin
 
+      - name: Install Zig
+        uses: goto-bus-stop/setup-zig@v2
+
       - name: Install cargo-zigbuild
         run: cargo install cargo-zigbuild
 
