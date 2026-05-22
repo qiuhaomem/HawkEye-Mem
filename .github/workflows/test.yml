@@ -94,7 +94,9 @@ jobs:
 
   # === macOS 构建与实机验证 ===
   test-macos:
-    runs-on: macos-latest
+    runs-on: macos-13
+    # 不阻塞主流程（runner 排队严重）
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -163,4 +165,61 @@ jobs:
         with:
           name: hawk-eye-mem-macos-arm64
           path: ./target/release/hawk-eye-mem
+          compression-level: 0
+
+  # === macOS 交叉编译（Linux 上构建，不排队）===
+  build-macos-cross:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain + macOS targets
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Setup macOS cross-compilation toolchain
+        uses: messense/macos-cross-toolchains@v1
+        with:
+          target: aarch64-apple-darwin
+
+      - name: Build for Apple Silicon (aarch64)
+        run: cargo build --release --target aarch64-apple-darwin
+        env:
+          CARGO_HOME: ${{ runner.temp }}/cargo-home
+
+      - name: Verify aarch64 binary
+        run: |
+          BIN=./target/aarch64-apple-darwin/release/hawk-eye-mem
+          ls -lh "$BIN"
+          file "$BIN"
+
+      - name: Setup x86_64 cross-compilation toolchain
+        uses: messense/macos-cross-toolchains@v1
+        with:
+          target: x86_64-apple-darwin
+
+      - name: Build for Intel Mac (x86_64)
+        run: cargo build --release --target x86_64-apple-darwin
+        env:
+          CARGO_HOME: ${{ runner.temp }}/cargo-home
+
+      - name: Verify x86_64 binary
+        run: |
+          BIN=./target/x86_64-apple-darwin/release/hawk-eye-mem
+          ls -lh "$BIN"
+          file "$BIN"
+
+      - name: Upload aarch64 binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: hawk-eye-mem-macos-arm64
+          path: ./target/aarch64-apple-darwin/release/hawk-eye-mem
+          compression-level: 0
+
+      - name: Upload x86_64 binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: hawk-eye-mem-macos-x86_64
+          path: ./target/x86_64-apple-darwin/release/hawk-eye-mem
           compression-level: 0

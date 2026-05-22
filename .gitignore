@@ -9,5 +9,9 @@ target/
 
 /target
 
+# Python cache
+__pycache__/
+*.pyc
+
 # Local dev environment (sysroot linker)
 .cargo/
