@@ -28,7 +28,7 @@ echo -e "${YELLOW}🔍 检测系统:${NC} $OS $ARCH"
 
 BIN_NAME="hawk-eye-mem"
 REPO="qiuhaomem/HawkEye-Mem"
-VERSION="v0.3.0"
+VERSION="v0.4.0"
 INSTALL_DIR="${HOME}/.cargo/bin"
 MCP_SCRIPT="hawkeye-mcp-server.py"
 
@@ -36,15 +36,15 @@ MCP_SCRIPT="hawkeye-mcp-server.py"
 case "$OS" in
   Linux)
     case "$ARCH" in
-      x86_64|amd64) DOWNLOAD_FILE="${BIN_NAME}" ;;  # Linux x86_64 glibc
+      x86_64|amd64) DOWNLOAD_FILE="hawk-eye-mem-x86_64-linux-gnu" ;;  # Linux x86_64 glibc
       aarch64|arm64) echo -e "${RED}❌ Linux ARM64 暂不支持，请从源码编译${NC}"; exit 1 ;;
       *) echo -e "${RED}❌ 不支持的架构: $ARCH${NC}"; exit 1 ;;
     esac
     ;;
   Darwin)
     case "$ARCH" in
-      arm64|aarch64) DOWNLOAD_FILE="${BIN_NAME}-macos-arm64" ;;
-      x86_64) DOWNLOAD_FILE="${BIN_NAME}-macos-x86_64" ;;
+      arm64|aarch64) DOWNLOAD_FILE="hawk-eye-mem-aarch64-apple-darwin" ;;
+      x86_64) DOWNLOAD_FILE="hawk-eye-mem-x86_64-apple-darwin" ;;
       *) echo -e "${RED}❌ 不支持的架构: $ARCH${NC}"; exit 1 ;;
     esac
     ;;
@@ -164,13 +164,18 @@ echo -e "${GREEN}🎉 秋毫mem MCP 安装完成！${NC}"
 echo -e "${CYAN}═══════════════════════════════════${NC}"
 echo ""
 echo -e "下次启动 Hermes 后就能用这些工具了："
-echo -e "  ${CYAN}get_memory_status${NC}      — 完整系统状态"
-echo -e "  ${CYAN}get_gpu_status${NC}         — GPU 状态"
-echo -e "  ${CYAN}get_thermal_status${NC}     — 温度监控"
-echo -e "  ${CYAN}get_agent_processes${NC}    — 同机 Agent 检测"
-echo -e "  ${CYAN}get_memory_metric${NC}      — 单指标查询"
-echo -e "  ${CYAN}get_memory_guidance${NC}    — 决策建议"
-echo -e "  ${CYAN}get_calibration_status${NC} — 校准状态"
+echo -e "  ${CYAN}get_memory_status${NC}              — 完整系统状态（含GPU/温度/Agent/容器）"
+echo -e "  ${CYAN}get_memory_metric${NC}              — 单指标查询"
+echo -e "  ${CYAN}get_memory_guidance${NC}            — 决策建议"
+echo -e "  ${CYAN}get_gpu_status${NC}                 — GPU 状态"
+echo -e "  ${CYAN}get_thermal_status${NC}             — CPU/GPU 温度"
+echo -e "  ${CYAN}get_agent_processes${NC}            — 同机 Agent 检测"
+echo -e "  ${CYAN}get_calibration_status${NC}         — 校准状态"
+echo -e "  ${CYAN}get_environment_fingerprint${NC}    — 环境指纹"
+echo -e "  ${CYAN}reset_environment_fingerprint${NC}  — 重置环境指纹"
+echo -e "  ${CYAN}get_concurrency_suggestion${NC}     — 并发度建议"
+echo -e "  ${CYAN}get_trend_report${NC}               — 趋势分析"
+echo -e "  ${CYAN}start_remote_server${NC}            — 远程采集服务"
 echo ""
 echo -e "如果 Hermes 正在运行，重启一下就能生效："
 echo -e "  ${YELLOW}hermes restart${NC}"
