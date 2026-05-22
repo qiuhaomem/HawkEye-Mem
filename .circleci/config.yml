@@ -30,8 +30,9 @@ commands:
 
 jobs:
   test-linux:
-    docker:
-      - image: cimg/base:current
+    machine:
+      image: ubuntu-2204:current
+    resource_class: medium
     environment:
       RUSTFLAGS: -D warnings
       CARGO_TERM_COLOR: always
@@ -48,8 +49,9 @@ jobs:
       - save-cargo-cache
 
   build-musl:
-    docker:
-      - image: cimg/base:current
+    machine:
+      image: ubuntu-2204:current
+    resource_class: medium
     steps:
       - checkout
       - install-rust
