@@ -229,9 +229,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test-linux, build-musl]
     steps:
-      - name: Trigger CircleCI Pipeline
-        uses: CircleCI-Public/trigger-circleci-pipeline-action@v1.2.0
-        with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CIRCLECI_TOKEN: ${{ secrets.CIRCLECI_TOKEN }}
-          BRANCH: ${{ github.ref_name }}
+      - name: Trigger CircleCI Pipeline via API
+        run: |
+          curl -s -X POST \
+            -H "Circle-Token: ${{ secrets.CIRCLECI_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json" \
+            -d '{"branch": "'"${{ github.ref_name }}"'"}' \
+            "https://circleci.com/api/v2/project/gh/qiuhaomem/HawkEye-Mem/pipeline"
