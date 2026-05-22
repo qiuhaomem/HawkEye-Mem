@@ -179,7 +179,7 @@ jobs:
           target: aarch64-apple-darwin,x86_64-apple-darwin
 
       - name: Setup macOS cross-compilation toolchain
-        uses: messense/macos-cross-toolchains@v1
+        uses: messense/macos-cross-toolchains@v1.2.0
         with:
           target: aarch64-apple-darwin
 
@@ -195,7 +195,7 @@ jobs:
           file "$BIN"
 
       - name: Setup x86_64 cross-compilation toolchain
-        uses: messense/macos-cross-toolchains@v1
+        uses: messense/macos-cross-toolchains@v1.2.0
         with:
           target: x86_64-apple-darwin
 
