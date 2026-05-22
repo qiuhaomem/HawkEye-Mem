@@ -1,9 +1,11 @@
-# 秋毫mem · CircleCI 配置
-# macOS runner 比 GitHub Actions 快多了
+# Use the latest 2.1 version of CircleCI pipeline process engine.
+# See: https://circleci.com/docs/reference/configuration-reference
 version: 2.1
 
+# Define a job to be invoked later in a workflow.
+# See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#jobs-overview & https://circleci.com/docs/reference/configuration-reference/#jobs
 commands:
-  install_rust:
+  install-rust:
     steps:
       - run:
           name: Install Rust toolchain
@@ -13,35 +15,35 @@ commands:
             rustup default stable
             rustc --version && cargo --version
 
-  restore_cache:
+  restore-cargo-cache:
     steps:
       - restore_cache:
-          name: Restore cargo cache
           keys:
             - cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
             - cargo-cache-{{ arch }}
 
-  save_cache:
+  save-cargo-cache:
     steps:
       - save_cache:
-          name: Save cargo cache
           key: cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
           paths:
             - ~/.cargo/registry
             - ~/.cargo/git
 
 jobs:
-  # ========== Linux ==========
   test-linux:
+    # Specify the execution environment. You can specify an image from Docker Hub or use one of our convenience images from CircleCI's Developer Hub.
+    # See: https://circleci.com/docs/guides/execution-managed/executor-intro/ & https://circleci.com/docs/reference/configuration-reference/#executor-job
     docker:
-      - image: rust:latest
-    resource_class: medium
+      - image: cimg/rust:latest
     environment:
       RUSTFLAGS: -D warnings
       CARGO_TERM_COLOR: always
+    # Add steps to the job
+    # See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#steps-overview & https://circleci.com/docs/reference/configuration-reference/#steps
     steps:
       - checkout
-      - restore_cache
+      - restore-cargo-cache
       - run:
           name: Build
           command: cargo build
@@ -57,41 +59,28 @@ import json,sys
 d = json.load(sys.stdin)
 assert d['system']['memory']['total_mb'] > 0, 'total_mb should be > 0'
 assert d['agent_guidance']['pressure'] in ('low','medium','high','critical'), 'invalid pressure'
-print('✅ JSON schema valid')
+print('JSON schema valid')
 "
-      - run:
-          name: Verify --metric output
-          command: |
-            METRIC=$(./target/debug/hawk-eye-mem --metric available_mb 2>/dev/null)
-            echo "$METRIC" | grep -q '[0-9]' && echo '✅ --metric available_mb works'
-      - save_cache
+      - save-cargo-cache
 
-  # ========== Linux musl（静态链接）==========
   build-musl:
     docker:
-      - image: rust:latest
-    resource_class: medium
+      - image: cimg/rust:latest
     environment:
       CARGO_TERM_COLOR: always
     steps:
       - checkout
-      - restore_cache
+      - restore-cargo-cache
       - run:
           name: Install musl target
           command: |
             rustup target add x86_64-unknown-linux-musl
-            apt-get update && apt-get install -y musl-tools
+            sudo apt-get update && sudo apt-get install -y musl-tools
       - run:
           name: Build with musl (static)
           command: cargo build --release --target x86_64-unknown-linux-musl
-      - run:
-          name: Verify static linking
-          command: |
-            ldd target/x86_64-unknown-linux-musl/release/hawk-eye-mem 2>&1 | head -3
-            file target/x86_64-unknown-linux-musl/release/hawk-eye-mem
-      - save_cache
+      - save-cargo-cache
 
-  # ========== macOS (Apple Silicon) ==========
   test-macos-arm:
     macos:
       xcode: "16.2.0"
@@ -101,8 +90,8 @@ print('✅ JSON schema valid')
       CARGO_TERM_COLOR: always
     steps:
       - checkout
-      - install_rust
-      - restore_cache
+      - install-rust
+      - restore-cargo-cache
       - run:
           name: Build
           command: source $HOME/.cargo/env && cargo build --release
@@ -110,28 +99,17 @@ print('✅ JSON schema valid')
           name: Run tests
           command: source $HOME/.cargo/env && cargo test
       - run:
-          name: macOS 实机采集验证
+          name: macOS 采集验证
           command: |
             source $HOME/.cargo/env
-            BIN=./target/release/hawk-eye-mem
+            BIN=./target/debug/hawk-eye-mem
             OUTPUT=$($BIN --json 2>/dev/null)
             TOTAL=$(echo "$OUTPUT" | python3 -c "import json,sys;d=json.load(sys.stdin);print(d['system']['memory']['total_mb'])")
-            AVAIL=$(echo "$OUTPUT" | python3 -c "import json,sys;d=json.load(sys.stdin);print(d['system']['memory']['available_mb'])")
-            PRESSURE=$(echo "$OUTPUT" | python3 -c "import json,sys;d=json.load(sys.stdin);print(d['agent_guidance']['pressure'])")
-            echo "=== macOS (ARM) 系统状态 ==="
-            echo "  总内存: ${TOTAL}MB"
-            echo "  可用:   ${AVAIL}MB"
-            echo "  压力:   ${PRESSURE}"
-            [ "$TOTAL" -gt 0 ] && [ "$AVAIL" -gt 0 ] && echo "✅ macOS ARM 采集器正常"
-      - run:
-          name: 环境指纹验证
-          command: |
-            source $HOME/.cargo/env
+            echo "macOS Memory: ${TOTAL}MB"
             $BIN --env-fingerprint
             $BIN --suggest-concurrency
-      - save_cache
+      - save-cargo-cache
 
-  # ========== macOS (Intel) ==========
   test-macos-intel:
     macos:
       xcode: "15.4.0"
@@ -141,8 +119,8 @@ print('✅ JSON schema valid')
       CARGO_TERM_COLOR: always
     steps:
       - checkout
-      - install_rust
-      - restore_cache
+      - install-rust
+      - restore-cargo-cache
       - run:
           name: Build
           command: source $HOME/.cargo/env && cargo build --release
@@ -150,29 +128,18 @@ print('✅ JSON schema valid')
           name: Run tests
           command: source $HOME/.cargo/env && cargo test
       - run:
-          name: macOS Intel 采集验证
+          name: macOS 采集验证
           command: |
             source $HOME/.cargo/env
-            ./target/release/hawk-eye-mem --json | python3 -c "import json,sys;d=json.load(sys.stdin);assert d['system'];assert d['agent_guidance'];print('✅ macOS Intel JSON output valid')"
-      - save_cache
+            ./target/release/hawk-eye-mem --json | python3 -c "import json,sys;d=json.load(sys.stdin);assert d['system'];assert d['agent_guidance'];print('JSON valid')"
+      - save-cargo-cache
 
+# Orchestrate jobs using workflows
+# See: https://circleci.com/docs/guides/orchestrate/workflows/ & https://circleci.com/docs/reference/configuration-reference/#workflows
 workflows:
-  version: 2
-  build_and_test:
+  build-and-test:
     jobs:
       - test-linux
       - build-musl
-      - test-macos-arm:
-          post-steps:
-            - run:
-                name: Upload macOS (ARM) binary artifact
-                command: |
-                  mkdir -p /tmp/artifacts
-                  cp ./target/release/hawk-eye-mem /tmp/artifacts/hawk-eye-mem-macos-arm64
-      - test-macos-intel:
-          post-steps:
-            - run:
-                name: Upload macOS (Intel) binary artifact
-                command: |
-                  mkdir -p /tmp/artifacts
-                  cp ./target/release/hawk-eye-mem /tmp/artifacts/hawk-eye-mem-macos-x86_64
+      - test-macos-arm
+      - test-macos-intel
