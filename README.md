@@ -61,7 +61,7 @@ AI 程序拿到这个，不用理解"内存"是什么，不用算百分比，它
 
 ```bash
 git clone https://github.com/qiuhaomem/HawkEye-Mem.git
-cd -HawkEye-Mem
+cd HawkEye-Mem
 cargo build --release
 sudo cp target/release/hawk-eye-mem /usr/local/bin/
 ```
@@ -74,7 +74,7 @@ sudo cp target/release/hawk-eye-mem /usr/local/bin/
 
 ```bash
 # Linux (musl 静态链接，任何发行版都能跑)
-curl -L -o hawk-eye-mem https://github.com/qiuhaomem/HawkEye-Mem/releases/download/v0.2.0/hawk-eye-mem-v0.2.0-linux-x86-64-musl
+curl -L -o hawk-eye-mem https://github.com/qiuhaomem/HawkEye-Mem/releases/download/v0.4.0/hawk-eye-mem-v0.4.0-linux-x86-64-musl
 chmod +x hawk-eye-mem
 ./hawk-eye-mem --help
 ```
@@ -112,6 +112,67 @@ hawk-eye-mem --list-models
 ```
 
 此外，V0.2 还新增了**磁盘**和**CPU**监控。`hawk-eye-mem --json` 的输出现在包含 `system.cpu` 和 `system.disk`（如果有模型缓存目录的话）。
+
+---
+
+## V0.3 新功能
+
+### 🎮 GPU 监控 — 你的大模型吃多少显存，一眼看清
+
+跑大模型最怕什么？显存爆了。秋毫mem V0.3 开始能看到 GPU 了——NVIDIA、AMD、Apple Silicon 全支持，每个 GPU 的显存、温度、功耗、利用率一目了然。
+
+```bash
+# 列出所有 GPU 和采集后端
+hawk-eye-mem --gpu-list
+
+# JSON 输出里直接带 GPU 信息
+hawk-eye-mem --json
+```
+
+### 🔥 温度监控 — 别让你的机器烧起来
+
+GPU 跑到 90°C 还在暴力推理？秋毫mem V0.3 增加了 CPU/GPU 温度检测，分三档告警：`normal`（正常）、`warning`（有点热了）、`critical`（快到红线了）。
+
+```bash
+# 看温度
+hawk-eye-mem --json
+# 输出里有 system.thermal.cpu_temp_c 和 pressure
+```
+
+### 🎯 模型校准 — 越用越准
+
+秋毫mem 估算上下文窗口时，默认的 `bytes_per_token` 是保守值。V0.3 引入了**动态校准**——你每跑一次推理，告诉它实际用了多少 token，它自己学习，越估越准。
+
+```bash
+# 创建一个校准记录
+hawk-eye-mem --tokens-processed 4096 --model-name llama3-8b
+
+# 看校准状态
+hawk-eye-mem --calibration-stats --model-name llama3-8b
+
+# 重置
+hawk-eye-mem --reset-calibration --model-name llama3-8b
+```
+
+### 🔄 状态机 — 连续监控更聪明
+
+V0.2 的 `--interval` 连续监控只是定时采样。V0.3 引入了状态机——检测到压力持续上涨就升级警告等级，恢复正常就降级，不会一惊一乍的。
+
+```bash
+# 连续监控，状态机自动生效
+hawk-eye-mem --json --interval 5
+```
+
+### 👥 多 Agent 检测
+
+一台机器跑多个 AI Agent？互相抢资源都不知道。秋毫mem V0.3 能检测同机运行的 Agent 进程，汇总 CPU 和内存占用。
+
+```bash
+# 输出里多了 system.agents 字段
+hawk-eye-mem --json
+```
+
+所有 V0.3 功能开箱即用，不需要额外配置。如果想调参，编辑 `~/.config/hawk-eye-mem/config.toml`，有 `[gpu]`、`[calibration]`、`[state_machine]`、`[multi_agent]` 四个配置段。
 
 ---
 
@@ -219,7 +280,7 @@ hawk-eye-mem --json --interval 5 --count 10
 # 一直盯着，按 Ctrl+C 停
 hawk-eye-mem --json --interval 5 --count 0
 
-# 排查部署前能否运行某个模型（V0.2 新增）
+# 排查部署前能否运行某个模型
 hawk-eye-mem --can-run --model llama3-8b
 
 # 对比哪个模型最适合你的电脑
@@ -227,6 +288,25 @@ hawk-eye-mem --can-run --compare llama3-8b,qwen2-7b,phi-3-mini
 
 # 列出内置支持的模型
 hawk-eye-mem --list-models
+
+# 看 GPU 状态
+hawk-eye-mem --gpu-list
+
+# 模型校准
+hawk-eye-mem --tokens-processed 4096 --model-name llama3-8b
+hawk-eye-mem --calibration-stats --model-name llama3-8b
+
+# 环境指纹
+hawk-eye-mem --env-fingerprint
+
+# 趋势分析
+hawk-eye-mem --trend
+
+# 并发度建议
+hawk-eye-mem --suggest-concurrency --task-memory 512
+
+# 启动远程采集服务
+hawk-eye-mem --serve --port 9240
 ```
 
 ---
@@ -239,13 +319,22 @@ hawk-eye-mem --list-models
 hermes mcp add hawk-eye-mem --command python3 --args scripts/hawkeye-mcp-server.py
 ```
 
-注册后 AI 程序就能直接调这三个工具了：
+注册后 AI 程序就能直接调这 12 个工具了：
 
 | 工具名 | 干嘛的 |
 |--------|--------|
-| `get_memory_status` | 看完整内存状态 + 建议 |
+| `get_memory_status` | 看完整系统状态（内存/CPU/磁盘/GPU/温度/Agent）+ 建议 |
 | `get_memory_metric` | 看单个指标（总内存、已用、可用、使用率、压力） |
-| `get_memory_guidance` | 只看建议（该不该缩、安不安全） |
+| `get_memory_guidance` | 只看建议（该不该缩、安不安全、能跑多少token） |
+| `get_gpu_status` | GPU 列表 + 每张卡的显存/温度/功耗/利用率 |
+| `get_thermal_status` | CPU/GPU 温度，分 normal/warning/critical 三档 |
+| `get_agent_processes` | 同机运行的 AI Agent 列表 + 占用 |
+| `get_calibration_status` | 看模型校准状态 |
+| `get_environment_fingerprint` | 环境指纹——当前机器是谁 |
+| `get_trend_report` | 趋势分析——内存涨了还是跌了 |
+| `get_concurrency_suggestion` | 并发度建议——能跑几个子Agent |
+| `reset_environment_fingerprint` | 重置环境指纹 |
+| `start_remote_server` | 启动远程采集 HTTP 服务 |
 
 **如果你用别的框架**：直接 `hawk-eye-mem --json`，拿到 JSON 输出，读 `agent_guidance.action` 字段，照做就行。
 

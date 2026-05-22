@@ -61,7 +61,7 @@ Install it, configure it, and it watches in the background. Before every heavy t
 
 ```bash
 git clone https://github.com/qiuhaomem/HawkEye-Mem.git
-cd -HawkEye-Mem
+cd HawkEye-Mem
 cargo build --release
 sudo cp target/release/hawk-eye-mem /usr/local/bin/
 ```
@@ -74,7 +74,7 @@ Download from [GitHub Releases](https://github.com/qiuhaomem/HawkEye-Mem/release
 
 ```bash
 # Linux (musl, statically linked, runs on any distro)
-curl -L -o hawk-eye-mem https://github.com/qiuhaomem/HawkEye-Mem/releases/download/v0.2.0/hawk-eye-mem-v0.2.0-linux-x86-64-musl
+curl -L -o hawk-eye-mem https://github.com/qiuhaomem/HawkEye-Mem/releases/download/v0.4.0/hawk-eye-mem-v0.4.0-linux-x86-64-musl
 chmod +x hawk-eye-mem
 ./hawk-eye-mem --help
 ```
@@ -112,6 +112,67 @@ hawk-eye-mem --list-models
 ```
 
 Additionally, V0.2 adds **disk** and **CPU** monitoring. `hawk-eye-mem --json` output now includes `system.cpu` and `system.disk` (if a model cache directory is configured).
+
+---
+
+## V0.3 What's New
+
+### 🎮 GPU Monitoring — See What Your LLM Is Eating
+
+Running local LLMs and wondering if you'll OOM the GPU? V0.3 adds GPU detection — NVIDIA, AMD, and Apple Silicon. Every card's VRAM, temperature, power draw, and utilization.
+
+```bash
+# List all GPUs with detection backend
+hawk-eye-mem --gpu-list
+
+# JSON output includes GPU info
+hawk-eye-mem --json
+```
+
+### 🔥 Thermal Monitoring — Don't Let Your Machine Melt
+
+GPU running at 90°C while you're not watching? V0.3 adds CPU/GPU temperature with three alert levels: `normal`, `warning`, `critical`.
+
+```bash
+# Temperature shows up in JSON output
+hawk-eye-mem --json
+# Look for system.thermal.cpu_temp_c and pressure
+```
+
+### 🎯 Model Calibration — Gets Smarter Over Time
+
+HawkEye Mem's default `bytes_per_token` is conservative. V0.3 introduces **dynamic calibration** — tell it how many tokens you actually processed, and it adjusts its estimates. The more you use it, the more accurate it gets.
+
+```bash
+# Record a calibration data point
+hawk-eye-mem --tokens-processed 4096 --model-name llama3-8b
+
+# Check calibration state
+hawk-eye-mem --calibration-stats --model-name llama3-8b
+
+# Reset calibration data
+hawk-eye-mem --reset-calibration --model-name llama3-8b
+```
+
+### 🔄 State Machine — Smarter Continuous Monitoring
+
+V0.2's `--interval` mode was a dumb sampler. V0.3 adds a state machine: sustained pressure upgrades the alert level, recovery downgrades it. No more false alarms.
+
+```bash
+# Continuous monitoring with state machine
+hawk-eye-mem --json --interval 5
+```
+
+### 👥 Multi-Agent Detection
+
+Multiple AI agents on one machine fighting for RAM? V0.3 detects co-located agent processes and aggregates their CPU and memory usage.
+
+```bash
+# JSON output includes system.agents
+hawk-eye-mem --json
+```
+
+All V0.3 features work out of the box. If you want to tune, edit `~/.config/hawk-eye-mem/config.toml` — there are `[gpu]`, `[calibration]`, `[state_machine]`, and `[multi_agent]` sections.
 
 ---
 
@@ -226,6 +287,25 @@ hawk-eye-mem --can-run --compare llama3-8b,qwen2-7b,phi-3-mini
 
 # List all supported models
 hawk-eye-mem --list-models
+
+# Check GPU status
+hawk-eye-mem --gpu-list
+
+# Model calibration
+hawk-eye-mem --tokens-processed 4096 --model-name llama3-8b
+hawk-eye-mem --calibration-stats --model-name llama3-8b
+
+# Environment fingerprint
+hawk-eye-mem --env-fingerprint
+
+# Trend analysis
+hawk-eye-mem --trend
+
+# Concurrency suggestion
+hawk-eye-mem --suggest-concurrency --task-memory 512
+
+# Start remote collection server
+hawk-eye-mem --serve --port 9240
 ```
 
 ---
@@ -238,13 +318,22 @@ hawk-eye-mem --list-models
 hermes mcp add hawk-eye-mem --command python3 --args scripts/hawkeye-mcp-server.py
 ```
 
-Three tools show up automatically:
+Twelve tools show up automatically:
 
 | Tool | What it does |
 |------|-------------|
-| `get_memory_status` | Full memory snapshot with agent guidance |
+| `get_memory_status` | Full system snapshot (memory/CPU/disk/GPU/thermal/agents) + guidance |
 | `get_memory_metric` | Single metric: total, used, available, percent, pressure |
-| `get_memory_guidance` | Just the advice — should I abort? reduce context? |
+| `get_memory_guidance` | Just the advice — action, pressure, safe context window |
+| `get_gpu_status` | GPU list with VRAM/temperature/power/utilization per card |
+| `get_thermal_status` | CPU/GPU temperature: normal/warning/critical |
+| `get_agent_processes` | Co-located AI agents + resource usage |
+| `get_calibration_status` | Model calibration state |
+| `get_environment_fingerprint` | Environment fingerprint — what machine is this |
+| `get_trend_report` | Trend analysis — is memory going up or down |
+| `get_concurrency_suggestion` | Safe concurrency — how many sub-agents can run |
+| `reset_environment_fingerprint` | Reset environment fingerprint |
+| `start_remote_server` | Start remote collection HTTP service |
 
 **If you use another framework**, just shell out to `hawk-eye-mem --json`, parse the output, and follow `agent_guidance.action`.
 
