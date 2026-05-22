@@ -167,59 +167,6 @@ jobs:
           path: ./target/release/hawk-eye-mem
           compression-level: 0
 
-  # === macOS 交叉编译（Linux 上构建，不排队）===
-  build-macos-cross:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain + macOS targets
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          target: aarch64-apple-darwin,x86_64-apple-darwin
-
-      - name: Install Zig
-        uses: goto-bus-stop/setup-zig@v2
-
-      - name: Install cargo-zigbuild
-        run: cargo install cargo-zigbuild
-
-      - name: Build for Apple Silicon (aarch64)
-        run: cargo zigbuild --release --target aarch64-apple-darwin
-        env:
-          CARGO_HOME: ${{ runner.temp }}/cargo-home
-
-      - name: Verify aarch64 binary
-        run: |
-          BIN=./target/aarch64-apple-darwin/release/hawk-eye-mem
-          ls -lh "$BIN"
-          file "$BIN"
-
-      - name: Build for Intel Mac (x86_64)
-        run: cargo zigbuild --release --target x86_64-apple-darwin
-        env:
-          CARGO_HOME: ${{ runner.temp }}/cargo-home
-
-      - name: Verify x86_64 binary
-        run: |
-          BIN=./target/x86_64-apple-darwin/release/hawk-eye-mem
-          ls -lh "$BIN"
-          file "$BIN"
-
-      - name: Upload aarch64 binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: hawk-eye-mem-macos-arm64
-          path: ./target/aarch64-apple-darwin/release/hawk-eye-mem
-          compression-level: 0
-
-      - name: Upload x86_64 binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: hawk-eye-mem-macos-x86_64
-          path: ./target/x86_64-apple-darwin/release/hawk-eye-mem
-          compression-level: 0
-
   # === 触发 CircleCI 流水线（macOS 原生构建）===
   trigger-circleci:
     runs-on: ubuntu-latest
