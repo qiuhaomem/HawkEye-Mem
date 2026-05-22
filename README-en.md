@@ -115,6 +115,91 @@ Additionally, V0.2 adds **disk** and **CPU** monitoring. `hawk-eye-mem --json` o
 
 ---
 
+## V0.4 What's New
+
+### 🏠 Environment Fingerprint — Move Your Agent, No Sweat
+
+Your agent works fine on one machine. Migrate it to another — boom. Different RAM, different CPU, maybe no GPU at all.
+HawkEye Mem V0.4 introduces **environment fingerprinting**. First run captures your machine's hardware profile. Every subsequent startup compares against it.
+If the hardware got upgraded, it says "you can run bigger models now." Downgraded? "Tighten your context window." Your agent never flies blind.
+
+```bash
+# View current fingerprint
+hawk-eye-mem --env-fingerprint
+
+# Rescan and reset
+hawk-eye-mem --reset-environment
+```
+
+### 🌐 Remote Collection — One Machine, Full Fleet View
+
+SSH'ing into every box in your cluster to check memory? That's a waste of time.
+Fire up `--serve` on a collector node, and every other machine hits the `/metrics` endpoint to push their stats.
+API Key auth + rate limiting on port 9240. Secure, simple, centralized.
+
+```bash
+# Start the metrics server
+hawk-eye-mem --serve --api-key your-secret-key
+
+# Pull from another machine
+curl http://192.168.1.100:9240/metrics -H "X-API-Key: your-secret-key"
+```
+
+### 📦 Container Aware — Works Inside Docker & K8s
+
+Run `free -h` inside a container and you see the host's RAM — not your container's cgroup limit.
+HawkEye Mem V0.4 auto-detects cgroup v1/v2 memory and CPU limits. It knows the container's actual ceiling, not the host's.
+Compatible with Docker, Kubernetes, and Podman. No config needed.
+
+```bash
+# Just use it — container limits detected automatically
+hawk-eye-mem --json
+```
+
+### 📈 Trend Analysis — It Has a Memory Now
+
+Old HawkEye Mem only saw the present moment. V0.4 remembers the past 7 days.
+`--trend` shows you the trajectory: rising, stable, or falling. A steady climb means trouble is brewing.
+
+```bash
+# See memory trends over the past week
+hawk-eye-mem --trend
+
+# Wipe the history
+hawk-eye-mem --clear-history
+```
+
+### 🤖 Multi-Agent Awareness — Watch Your Whole Swarm
+
+Running multiple agents on one box? V0.4 tracks CPU and memory per agent process and rolls up the total.
+Give each agent a name and see at a glance who's the resource hog.
+
+```bash
+# Monitor all agents with custom names
+hawk-eye-mem --json --agents --agent-name "my-bot-1"
+```
+
+### 🚨 Alert Mode — Minimal JSON for Alerting
+
+Plugging HawkEye Mem into your alert pipeline? `--alert` outputs only the essentials — compact JSON designed for Prometheus Alertmanager, PagerDuty, Slack, or any webhook.
+
+```bash
+# Minimal JSON, perfect for alerting systems
+hawk-eye-mem --alert
+```
+
+### 🤯 Physical AI — First Steps
+
+Want your agent orchestrator to know "how many sub-agents can this machine actually run?"
+`--suggest-concurrency` crunches real-time RAM, CPU, and GPU data and tells you the optimal parallel agent count.
+
+```bash
+# How many agents can I run right now?
+hawk-eye-mem --suggest-concurrency
+```
+
+---
+
 ## Usage
 
 ```bash

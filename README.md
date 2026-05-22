@@ -115,6 +115,92 @@ hawk-eye-mem --list-models
 
 ---
 
+## V0.4 新功能
+
+### 🏠 环境指纹 — Agent 搬家也不怕
+
+你的 Agent 在一台机器上跑得好好的，换台机器——崩了。因为新机器的内存变了、CPU 变了、GPU 也没了。
+秋毫mem V0.4 引入了**环境指纹**。首次运行自动采集机器配置生成指纹，之后每次启动自动比对。
+升级了告诉你"可以跑更大模型"，降级了告诉你"建议缩上下文"，绝不让 Agent 硬撑。
+
+```bash
+# 查看当前环境指纹
+hawk-eye-mem --env-fingerprint
+
+# 重新采集环境指纹
+hawk-eye-mem --reset-environment
+```
+
+### 🌐 远程采集 — 一台机器看全局
+
+集群里几十台机器，每台都去 SSH 登录看？太累了。
+秋毫mem V0.4 可以用 `--serve` 启动 HTTP 服务，暴露 `/metrics` 端点，其他机器直接拉取指标。
+API Key 认证 + 速率限制，默认 9240 端口，安全又省心。
+
+```bash
+# 启动采集服务
+hawk-eye-mem --serve --api-key your-secret-key
+
+# 另一台机器拉取指标
+curl http://192.168.1.100:9240/metrics -H "X-API-Key: your-secret-key"
+```
+
+### 📦 容器适配 — Docker/K8s 里也能正确感知
+
+在容器里跑 `free -h`，看到的是宿主机的内存，不是你容器的限制。
+秋毫mem V0.4 能自动检测 cgroup v1/v2 的内存和 CPU 限制，不把宿主机内存当自己的。
+Docker、Kubernetes、Podman 全兼容，开箱即用。
+
+```bash
+# 在容器里直接用，自动识别 cgroup 限制
+hawk-eye-mem --json
+```
+
+### 📈 趋势分析 — 有记忆了
+
+以前秋毫mem 只能看当前这一瞬间。现在它能记住过去 7 天的数据。
+用 `--trend` 看内存走势：是上升、稳定还是下降？连续上涨就要警惕了。
+
+```bash
+# 查看内存趋势
+hawk-eye-mem --trend
+
+# 清空历史数据
+hawk-eye-mem --clear-history
+```
+
+### 🤖 多Agent 增强 — 连自己的 Agent 兄弟也管
+
+一个机器上跑了好几个 Agent？秋毫mem V0.4 能同时监控所有 Agent 进程的 CPU 和内存占用，加总告诉你总量。
+还可以给每个 Agent 起名字，一眼看出来谁在吃资源。
+
+```bash
+# 查看所有 Agent 的占用情况（带自定义名称）
+hawk-eye-mem --json --agents --agent-name "my-bot-1"
+```
+
+### 🚨 告警模式
+
+要把秋毫mem 接进告警系统？V0.4 的 `--alert` 模式输出最小化 JSON，只有最关键的信息。
+适配 Prometheus Alertmanager、飞书、钉钉、Slack 等任何告警通道。
+
+```bash
+# 告警模式，输出最小化 JSON
+hawk-eye-mem --alert
+```
+
+### 🤯 物理AI 第一步
+
+想让你的 Agent 框架知道"这台机器到底能跑几个子 Agent"？
+秋毫mem V0.4 的 `--suggest-concurrency` 基于实时物理资源（内存、CPU、GPU），智能算出可以并行跑多少个子 Agent。
+
+```bash
+# 看看这台机器能同时跑几个 Agent
+hawk-eye-mem --suggest-concurrency
+```
+
+---
+
 ## 怎么用
 
 ```bash

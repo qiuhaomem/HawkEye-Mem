@@ -2,6 +2,13 @@
 """
 秋毫mem MCP Server — 让 AI Agent 通过 MCP 协议直接感知系统资源。
 
+V0.4 新增：
+  - 环境指纹（get_environment_fingerprint）
+  - 趋势报告（get_trend_report）
+  - 并发度建议（get_concurrency_suggestion）
+  - 重置环境指纹（reset_environment_fingerprint）
+  - 启动远程服务端（start_remote_server）
+
 V0.3 新增：
   - GPU 状态采集（NVIDIA NVML / nvidia-smi / AMD ROCm / Apple Metal）
   - CPU/GPU 温度监控
@@ -82,7 +89,7 @@ def handle_initialize(params: dict) -> dict:
         },
         "serverInfo": {
             "name": "hawk-eye-mem",
-            "version": "0.3.0"
+            "version": "0.4.0"
         }
     }
 
@@ -169,6 +176,62 @@ def handle_list_tools(params: dict) -> dict:
                     "required": ["model_name"]
                 }
             },
+            # ======== V0.4 新工具 ========
+            {
+                "name": "get_environment_fingerprint",
+                "description": "获取当前环境的唯一指纹信息，包含硬件/系统特征哈希。用于识别环境变更或进行环境匹配。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            },
+            {
+                "name": "get_trend_report",
+                "description": "获取系统资源使用的趋势报告，基于历史数据展示内存/CPU/磁盘的变化趋势，帮助判断资源增长或下降。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            },
+            {
+                "name": "get_concurrency_suggestion",
+                "description": "获取当前系统资源下的安全并发度建议。可选传入 --task-memory 指定每个任务的内存开销（MB），以获得更精准的建议。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "task_memory": {
+                            "type": "integer",
+                            "description": "每个任务预期的内存开销（MB）。传入后秋毫mem 会根据系统可用内存计算推荐并发数。"
+                        }
+                    },
+                    "required": []
+                }
+            },
+            {
+                "name": "reset_environment_fingerprint",
+                "description": "重置环境指纹。强制重新生成环境标识，适用于环境发生重大变更后需要重新校准的场景。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            },
+            {
+                "name": "start_remote_server",
+                "description": "在当前主机后台启动秋毫mem 远程服务端，监听指定端口，允许远程客户端连接查询系统资源状态。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "port": {
+                            "type": "integer",
+                            "description": "服务端监听端口号（默认 9876）"
+                        }
+                    },
+                    "required": []
+                }
+            },
         ]
     }
 
@@ -240,6 +303,80 @@ def handle_call_tool(params: dict) -> dict:
             return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
         return {"content": [{"type": "text", "text": json.dumps(data, indent=2)}]}
 
+    # ======== V0.4 新工具 ========
+
+    elif name == "get_environment_fingerprint":
+        data = run_hawkeye(["--env-fingerprint"])
+        if "error" in data:
+            # 如果 CLI 报错，可能是无指纹数据
+            return {"content": [{"type": "text", "text": json.dumps({
+                "fingerprint": None,
+                "message": "当前环境无指纹记录，请先运行 hawk-eye-mem 采集基线数据。"
+            }, indent=2)}]}
+        return {"content": [{"type": "text", "text": json.dumps(data, indent=2)}]}
+
+    elif name == "get_trend_report":
+        data = run_hawkeye(["--trend"])
+        if "error" in data:
+            return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
+        return {"content": [{"type": "text", "text": json.dumps(data, indent=2)}]}
+
+    elif name == "get_concurrency_suggestion":
+        args = ["--suggest-concurrency"]
+        task_memory = arguments.get("task_memory")
+        if task_memory is not None:
+            args.extend(["--task-memory", str(task_memory)])
+        data = run_hawkeye(args)
+        if "error" in data:
+            return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
+        return {"content": [{"type": "text", "text": json.dumps(data, indent=2)}]}
+
+    elif name == "reset_environment_fingerprint":
+        data = run_hawkeye(["--reset-environment", "--force"])
+        if "error" in data:
+            return {"content": [{"type": "text", "text": json.dumps({
+                "success": False,
+                "message": data["error"]
+            })}], "isError": True}
+        return {"content": [{"type": "text", "text": json.dumps({
+            "success": True,
+            "message": "环境指纹已重置，下次采集时将重新生成。"
+        }, indent=2)}]}
+
+    elif name == "start_remote_server":
+        port = arguments.get("port", 9876)
+        bin_path = find_binary(HAWKEYE_BIN)
+        if not bin_path:
+            return {"content": [{"type": "text", "text": json.dumps({
+                "error": f"hawk-eye-mem binary not found"
+            })}], "isError": True}
+        try:
+            proc = subprocess.Popen(
+                [bin_path, "--serve", "--port", str(port)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            import time
+            time.sleep(0.5)
+            if proc.poll() is not None:
+                return {"content": [{"type": "text", "text": json.dumps({
+                    "success": False,
+                    "message": f"服务端启动失败，进程已退出（exit code: {proc.returncode}）"
+                }, indent=2)}], "isError": True}
+            return {"content": [{"type": "text", "text": json.dumps({
+                "success": True,
+                "message": f"秋毫mem 远程服务端已在后台启动",
+                "port": port,
+                "pid": proc.pid,
+                "binary": bin_path,
+                "status": "running"
+            }, indent=2)}]}
+        except Exception as e:
+            return {"content": [{"type": "text", "text": json.dumps({
+                "success": False,
+                "error": str(e)
+            })}], "isError": True}
+
     else:
         return {
             "content": [{"type": "text", "text": f"Unknown tool: {name}"}],
@@ -250,7 +387,7 @@ def handle_call_tool(params: dict) -> dict:
 # ==================== 主循环：JSON-RPC over stdio ====================
 
 def main():
-    sys.stderr.write("HawkEye Mem MCP Server v0.3.0 started\n")
+    sys.stderr.write("HawkEye Mem MCP Server v0.4.0 started\n")
     sys.stderr.flush()
 
     for line in sys.stdin:
