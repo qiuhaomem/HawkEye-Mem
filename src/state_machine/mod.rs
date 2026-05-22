@@ -171,11 +171,7 @@ impl StateMachine {
     /// 更新状态机，传入当前内存指标和时刻
     ///
     /// 返回 `StateTransition`，调用方根据该值决定输出 action。
-    pub fn update(
-        &mut self,
-        metrics: &MemoryMetrics,
-        now: Instant,
-    ) -> StateTransition {
+    pub fn update(&mut self, metrics: &MemoryMetrics, now: Instant) -> StateTransition {
         // === 第 1 步：紧急快速通道（CR-08）===
         // 在一切之前检查，确保紧急状态不被延时条件阻塞
         if emergency::is_emergency(
@@ -192,7 +188,11 @@ impl StateMachine {
             self.first_sample_taken = true;
             let pressure = &metrics.pressure;
             if *pressure == PressureLevel::High || *pressure == PressureLevel::Critical {
-                return self.transition_to(MonitorState::Warning, now, StateTransition::EnterWarning);
+                return self.transition_to(
+                    MonitorState::Warning,
+                    now,
+                    StateTransition::EnterWarning,
+                );
             }
             // 首次采集状态正常，保持 Normal
             return StateTransition::None;
@@ -344,7 +344,7 @@ impl StateMachine {
         let previous = self.state;
         self.state = MonitorState::Critical;
         self.state_entered_at = now;
-        self.first_sample_taken = true;  // 紧急跃迁后无需冷启动
+        self.first_sample_taken = true; // 紧急跃迁后无需冷启动
         self.consecutive_high = 0;
         self.consecutive_critical = 0;
         self.consecutive_ok = 0;
@@ -366,7 +366,11 @@ impl StateMachine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn make_metrics(available_mb: u64, used_percent: f64, pressure: PressureLevel) -> MemoryMetrics {
+    fn make_metrics(
+        available_mb: u64,
+        used_percent: f64,
+        pressure: PressureLevel,
+    ) -> MemoryMetrics {
         MemoryMetrics {
             total_mb: 16000,
             used_mb: (16000u64.saturating_sub(available_mb)),
@@ -400,7 +404,7 @@ mod tests {
     #[test]
     fn test_normal_to_warning() {
         let config = StateMachineConfig {
-            warning_seconds: 0,  // 0秒，只靠次数条件
+            warning_seconds: 0, // 0秒，只靠次数条件
             min_samples_warning: 2,
             ..Default::default()
         };
@@ -421,7 +425,11 @@ mod tests {
         // 第二次高压（满足 min_samples=2）
         let m = make_metrics(2000, 85.0, PressureLevel::High);
         let r2 = sm.update(&m, now + Duration::from_secs(2));
-        assert_eq!(r2, StateTransition::EnterWarning, "第二次高压应进入 Warning");
+        assert_eq!(
+            r2,
+            StateTransition::EnterWarning,
+            "第二次高压应进入 Warning"
+        );
         assert_eq!(sm.current_state(), MonitorState::Warning);
     }
 
@@ -446,9 +454,19 @@ mod tests {
             let m = make_metrics(1000, 95.0, PressureLevel::Critical);
             let r = sm.update(&m, now + Duration::from_secs(i + 1));
             if i < 2 {
-                assert_eq!(r, StateTransition::None, "第{}次 Critical 应保持 Warning", i + 1);
+                assert_eq!(
+                    r,
+                    StateTransition::None,
+                    "第{}次 Critical 应保持 Warning",
+                    i + 1
+                );
             } else {
-                assert_eq!(r, StateTransition::EnterCritical, "第{}次 Critical 应触发", i + 1);
+                assert_eq!(
+                    r,
+                    StateTransition::EnterCritical,
+                    "第{}次 Critical 应触发",
+                    i + 1
+                );
                 assert_eq!(sm.current_state(), MonitorState::Critical);
                 break;
             }
@@ -477,7 +495,11 @@ mod tests {
             if i == 0 {
                 assert_eq!(r, StateTransition::None, "第一次低压应保持 Warning");
             } else {
-                assert_eq!(r, StateTransition::RecoverToNormal, "第二次低压应恢复 Normal");
+                assert_eq!(
+                    r,
+                    StateTransition::RecoverToNormal,
+                    "第二次低压应恢复 Normal"
+                );
                 assert_eq!(sm.current_state(), MonitorState::Normal);
                 break;
             }
@@ -508,7 +530,11 @@ mod tests {
         // 第二次非 Critical（恢复计数 2/2 → RecoverToWarning）
         let m = make_metrics(6000, 50.0, PressureLevel::Low);
         let r2 = sm.update(&m, now + Duration::from_secs(2));
-        assert_eq!(r2, StateTransition::RecoverToWarning, "第二次应恢复 Warning");
+        assert_eq!(
+            r2,
+            StateTransition::RecoverToWarning,
+            "第二次应恢复 Warning"
+        );
         assert_eq!(sm.current_state(), MonitorState::Warning);
     }
 
@@ -591,7 +617,7 @@ mod tests {
     #[test]
     fn test_dual_condition_both_required() {
         let config = StateMachineConfig {
-            warning_seconds: 3,   // 要求至少 3 秒
+            warning_seconds: 3,     // 要求至少 3 秒
             min_samples_warning: 3, // 要求至少 3 次
             ..Default::default()
         };

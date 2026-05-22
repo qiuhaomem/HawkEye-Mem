@@ -16,7 +16,31 @@ impl ResourceCollector for MacosCollector {
         }
 
         let output = String::from_utf8_lossy(&vm_stat.stdout);
-        let page_size = 16384u64;
+
+        // 动态检测 page size：优先从 vm_stat 首行解析，回退到 sysctl
+        let page_size = {
+            let first_line = output.lines().next().unwrap_or("");
+            // vm_stat 输出首行： "Mach Virtual Memory Statistics: (page size of 16384 bytes)"
+            first_line
+                .split("page size of ")
+                .nth(1)
+                .and_then(|s| s.split_whitespace().next())
+                .and_then(|s| s.parse::<u64>().ok())
+                .or_else(|| {
+                    // 回退：sysctl hw.pagesize
+                    Command::new("sysctl")
+                        .args(["-n", "hw.pagesize"])
+                        .output()
+                        .ok()
+                        .and_then(|o| {
+                            String::from_utf8_lossy(&o.stdout)
+                                .trim()
+                                .parse::<u64>()
+                                .ok()
+                        })
+                })
+                .unwrap_or(16384) // 最后回退 Apple Silicon 默认值
+        };
 
         let mut free_pages: u64 = 0;
         let mut active_pages: u64 = 0;
@@ -30,7 +54,9 @@ impl ResourceCollector for MacosCollector {
 
         for line in output.lines() {
             let parts: Vec<&str> = line.split(':').collect();
-            if parts.len() < 2 { continue; }
+            if parts.len() < 2 {
+                continue;
+            }
             let key = parts[0].trim();
             let val = parts[1].trim().trim_end_matches('.');
             let num = val.parse::<u64>().unwrap_or(0u64);
@@ -38,9 +64,18 @@ impl ResourceCollector for MacosCollector {
                 "Pages free" => free_pages = num,
                 "Pages active" => active_pages = num,
                 "Pages wired down" => wired_pages = num,
-                "Pages occupied by compressor" => { compressor_occupied_pages = num; has_compressor_occupied = true; },
-                "Pages inactive" => { inactive_pages = num; has_inactive = true; },
-                "Pages speculative" => { speculative_pages = num; has_speculative = true; },
+                "Pages occupied by compressor" => {
+                    compressor_occupied_pages = num;
+                    has_compressor_occupied = true;
+                }
+                "Pages inactive" => {
+                    inactive_pages = num;
+                    has_inactive = true;
+                }
+                "Pages speculative" => {
+                    speculative_pages = num;
+                    has_speculative = true;
+                }
                 _ => {}
             }
         }
@@ -56,7 +91,9 @@ impl ResourceCollector for MacosCollector {
             .args(["-n", "hw.memsize"])
             .output()
             .map_err(|e| CollectError::ReadFailed(e.to_string()))?;
-        let total_str = String::from_utf8_lossy(&total_output.stdout).trim().to_string();
+        let total_str = String::from_utf8_lossy(&total_output.stdout)
+            .trim()
+            .to_string();
         let total_bytes: u64 = total_str.parse().unwrap_or(8 * 1024 * 1024 * 1024);
         let total_mb = total_bytes / 1024 / 1024;
 
@@ -76,7 +113,13 @@ impl ResourceCollector for MacosCollector {
 
         let pressure = classify_pressure(available_mb, used_percent, total_mb);
 
-        Ok(CollectorOutput::Memory(MemoryMetrics { total_mb, used_mb, available_mb, used_percent, pressure }))
+        Ok(CollectorOutput::Memory(MemoryMetrics {
+            total_mb,
+            used_mb,
+            available_mb,
+            used_percent,
+            pressure,
+        }))
     }
 }
 

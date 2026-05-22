@@ -1,12 +1,12 @@
+pub mod cpu;
+pub mod disk;
+pub mod gpu;
 pub mod linux;
 pub mod macos;
 pub mod registry;
-pub mod disk;
-pub mod cpu;
-pub mod gpu;
 
-use thiserror::Error;
 use serde::Serialize;
+use thiserror::Error;
 
 // ============================================================================
 // 资源指标结构体
@@ -108,6 +108,9 @@ pub struct AgentDetection {
     pub agents: Vec<AgentProcess>,
     pub count: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_agent_memory_mb: Option<u64>,
+    pub total_agent_cpu_percent: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub global_pressure: Option<String>,
     pub note: String,
 }
@@ -150,7 +153,11 @@ impl PressureLevel {
     }
 
     pub fn min(a: Self, b: Self) -> Self {
-        if a.priority() <= b.priority() { a } else { b }
+        if a.priority() <= b.priority() {
+            a
+        } else {
+            b
+        }
     }
 }
 
@@ -275,6 +282,157 @@ pub struct ResourceSnapshot {
     pub thermal: Option<ThermalMetrics>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub agents: Option<AgentDetection>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub container_runtime: Option<String>,
     pub timestamp: String,
     pub collection_duration_ms: f64,
+}
+
+// ============================================================================
+// 单元测试 — AgentDetection 增强（V0.4）
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // UT-MAV-001: AgentDetection 可正确构造并序列化
+    #[test]
+    fn test_ut_mav_001_agent_detection_struct() {
+        let detection = AgentDetection {
+            agents: vec![
+                AgentProcess {
+                    name: "hermes".to_string(),
+                    pid: 12345,
+                    memory_rss_mb: Some(256),
+                    cpu_percent: Some(2.5),
+                },
+                AgentProcess {
+                    name: "claude-code".to_string(),
+                    pid: 12346,
+                    memory_rss_mb: Some(512),
+                    cpu_percent: Some(1.5),
+                },
+            ],
+            count: 2,
+            total_agent_memory_mb: Some(768),
+            total_agent_cpu_percent: 4.0,
+            global_pressure: None,
+            note: "test".to_string(),
+        };
+
+        let json = serde_json::to_value(&detection).unwrap();
+        assert_eq!(json["count"], 2);
+        assert_eq!(json["total_agent_memory_mb"], 768);
+        assert_eq!(
+            json["total_agent_cpu_percent"].as_f64().unwrap(),
+            4.0
+        );
+        assert_eq!(json["agents"].as_array().unwrap().len(), 2);
+        assert_eq!(json["agents"][0]["name"], "hermes");
+        assert_eq!(json["agents"][0]["pid"], 12345);
+        assert_eq!(json["agents"][0]["memory_rss_mb"], 256);
+        assert_eq!(
+            json["agents"][0]["cpu_percent"].as_f64().unwrap(),
+            2.5
+        );
+    }
+
+    // UT-MAV-003: 每个 Agent 包含完整资源详情
+    #[test]
+    fn test_ut_mav_003_agent_resource_details() {
+        let agent = AgentProcess {
+            name: "deepseek-tui".to_string(),
+            pid: 99999,
+            memory_rss_mb: Some(1024),
+            cpu_percent: Some(5.0),
+        };
+        let json = serde_json::to_value(&agent).unwrap();
+        assert_eq!(json["name"], "deepseek-tui");
+        assert_eq!(json["pid"], 99999);
+        assert_eq!(json["memory_rss_mb"], 1024);
+        assert_eq!(json["cpu_percent"].as_f64().unwrap(), 5.0);
+    }
+
+    // UT-MAV-004: 总 Agent 内存在 JSON 中正确输出
+    #[test]
+    fn test_ut_mav_004_total_agent_memory_output() {
+        let detection = AgentDetection {
+            agents: vec![
+                AgentProcess {
+                    name: "agent-a".to_string(),
+                    pid: 1,
+                    memory_rss_mb: Some(100),
+                    cpu_percent: Some(1.0),
+                },
+                AgentProcess {
+                    name: "agent-b".to_string(),
+                    pid: 2,
+                    memory_rss_mb: Some(200),
+                    cpu_percent: Some(2.0),
+                },
+            ],
+            count: 2,
+            total_agent_memory_mb: Some(300),
+            total_agent_cpu_percent: 3.0,
+            global_pressure: None,
+            note: String::new(),
+        };
+        let json = serde_json::to_value(&detection).unwrap();
+        assert_eq!(json["total_agent_memory_mb"], 300);
+        assert_eq!(
+            json["total_agent_cpu_percent"].as_f64().unwrap(),
+            3.0
+        );
+    }
+
+    // UT-MAV-008: 无 Agent 运行时 total_agent_memory_mb 为 null（skip）
+    #[test]
+    fn test_ut_mav_008_no_agents() {
+        let detection = AgentDetection {
+            agents: vec![],
+            count: 0,
+            total_agent_memory_mb: None,
+            total_agent_cpu_percent: 0.0,
+            global_pressure: None,
+            note: "no agents".to_string(),
+        };
+        let json = serde_json::to_value(&detection).unwrap();
+        assert_eq!(json["count"], 0);
+        // total_agent_memory_mb 应为 null（被 skip_serializing_if 隐藏）
+        assert!(
+            !json.as_object().unwrap().contains_key("total_agent_memory_mb"),
+            "无 Agent 时 total_agent_memory_mb 应被序列化跳过"
+        );
+        // total_agent_cpu_percent 始终输出（即使 0.0）
+        assert_eq!(
+            json["total_agent_cpu_percent"].as_f64().unwrap(),
+            0.0
+        );
+        assert!(json["agents"].as_array().unwrap().is_empty());
+    }
+
+    // UT-MAV-009: 进程已退出 — memory_rss_mb 和 cpu_percent 可能为 None
+    #[test]
+    fn test_ut_mav_009_exited_process() {
+        // 模拟进程已退出的情况：memory_rss_mb = None, cpu_percent = None
+        let agent = AgentProcess {
+            name: "ghost-agent".to_string(),
+            pid: 0,
+            memory_rss_mb: None,
+            cpu_percent: None,
+        };
+        let json = serde_json::to_value(&agent).unwrap();
+        assert_eq!(json["name"], "ghost-agent");
+        assert_eq!(json["pid"], 0);
+        // memory_rss_mb 和 cpu_percent 应为 null（被 skip_serializing_if 隐藏）
+        assert!(
+            !json.as_object().unwrap().contains_key("memory_rss_mb"),
+            "None 的 memory_rss_mb 应被跳过"
+        );
+        assert!(
+            !json.as_object().unwrap().contains_key("cpu_percent"),
+            "None 的 cpu_percent 应被跳过"
+        );
+    }
 }

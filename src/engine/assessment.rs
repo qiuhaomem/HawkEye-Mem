@@ -180,16 +180,17 @@ impl AssessmentEngine {
             let weight_mb = (entry.size_b as f64 * bpw) / (1024.0 * 1024.0);
             let ctx = request.context_window.unwrap_or(entry.max_context) as u64;
             // KV cache 大小（bytes）转 MB
-            let kv_cache_mb =
-                (entry.bytes_per_token as u128 * ctx as u128) / (1024u128 * 1024u128);
+            let kv_cache_mb = (entry.bytes_per_token as u128 * ctx as u128) / (1024u128 * 1024u128);
             let total = weight_mb as u64 + kv_cache_mb as u64 + entry.memory_overhead_mb;
             Ok(total)
         } else if let Some(size_b) = request.model_size_b {
             let bpt = models::quantization_bytes_per_weight(
                 request.quantization.as_deref().unwrap_or("Q4_K_M"),
             );
-            // 权重内存 = size_b * bytes_per_weight / 1MB
-            let weight_mb = (size_b as f64 * bpt) / (1024.0 * 1024.0);
+            // model_size_b 是参数量（如 70 表示 70B），需要转为字节
+            // 权重内存 = size_b * 1B * bytes_per_weight / 1MB
+            let size_bytes = (size_b as u128) * 1_000_000_000u128;
+            let weight_mb = (size_bytes as f64 * bpt) / (1024.0 * 1024.0);
             // KV cache（默认 bytes_per_token = 2048）
             let ctx = request.context_window.unwrap_or(4096) as u64;
             let kv_cache_mb = (2048u128 * ctx as u128) / (1024u128 * 1024u128);
@@ -204,10 +205,11 @@ impl AssessmentEngine {
     fn get_size_b(request: &DeploymentRequest) -> Result<u64, String> {
         if let Some(ref name) = request.model_name {
             let entry =
-                ModelLibrary::find(name).ok_or_else(|| format!("模型未找到: {}", name))?;
+                ModelLibrary::find(name).ok_or_else(|| format!("Model not found: {}", name))?;
             Ok(entry.size_b)
         } else if let Some(size) = request.model_size_b {
-            Ok(size)
+            // model_size_b 是参数量（如 70=70B），需转为字节
+            Ok(size.saturating_mul(1_000_000_000))
         } else {
             Err("需要指定 model_name 或 model_size_b".to_string())
         }
@@ -242,10 +244,7 @@ impl AssessmentEngine {
                     if let Some(ref model_name) = request.model_name {
                         if let Some(entry) = ModelLibrary::find(model_name) {
                             // 方案 1: 降量化
-                            let current_q = request
-                                .quantization
-                                .as_deref()
-                                .unwrap_or("Q4_K_M");
+                            let current_q = request.quantization.as_deref().unwrap_or("Q4_K_M");
                             if let Some(lower_q) =
                                 models::next_lower_quantization(current_q, &entry.quantizations)
                             {
@@ -261,9 +260,7 @@ impl AssessmentEngine {
                             }
 
                             // 方案 2: 降上下文
-                            let current_ctx = request
-                                .context_window
-                                .unwrap_or(entry.max_context);
+                            let current_ctx = request.context_window.unwrap_or(entry.max_context);
                             if current_ctx > entry.min_context {
                                 let suggested_ctx =
                                     std::cmp::max(entry.min_context, current_ctx / 2);
@@ -323,10 +320,7 @@ impl AssessmentEngine {
     // Verdict 判定
     // ========================================================================
 
-    fn determine_verdict(
-        constraints: &[Constraint],
-        safe_options: &[SafeOption],
-    ) -> Verdict {
+    fn determine_verdict(constraints: &[Constraint], safe_options: &[SafeOption]) -> Verdict {
         if constraints.is_empty() {
             return Verdict::Feasible;
         }
@@ -373,8 +367,8 @@ fn estimate_savings_percent(current: &str, lower: &str) -> u32 {
 mod tests {
     use super::*;
     use crate::collector::{
-        CpuMetrics, CpuPressure, DiskMetrics, DiskPressure, GpuMetrics, GpuPressure,
-        MemoryMetrics, PressureLevel,
+        CpuMetrics, CpuPressure, DiskMetrics, DiskPressure, GpuMetrics, GpuPressure, MemoryMetrics,
+        PressureLevel,
     };
 
     // 构建一个简单的 snapshot（16GB 内存，100GB 磁盘，无 GPU）
@@ -382,31 +376,32 @@ mod tests {
         ResourceSnapshot {
             memory: Some(MemoryMetrics {
                 total_mb: 16384,
-                used_mb: 4000,
-                available_mb: 12000,
-                used_percent: 24.4,
+                used_mb: 2048,
+                available_mb: 14336,
+                used_percent: 12.5,
                 pressure: PressureLevel::Low,
             }),
             disk: Some(DiskMetrics {
                 path: "/".to_string(),
-                total_mb: 512000,
-                available_mb: 102400,
-                used_percent: 80.0,
+                total_mb: 102_400,
+                available_mb: 51_200,
+                used_percent: 50.0,
                 pressure: DiskPressure::Ok,
                 growth_rate_mb_per_hour: None,
             }),
             cpu: Some(CpuMetrics {
-                cores: 8,
-                load_avg_1m: 2.0,
-                load_avg_5m: 1.5,
-                load_avg_15m: 1.0,
+                cores: 4,
+                load_avg_1m: 0.5,
+                load_avg_5m: 0.4,
+                load_avg_15m: 0.3,
                 agent_processes_percent: None,
                 pressure: CpuPressure::Low,
             }),
             gpu: None,
             thermal: None,
             agents: None,
-            timestamp: "2026-01-01T00:00:00Z".to_string(),
+            container_runtime: None,
+            timestamp: "2025-01-01T00:00:00Z".to_string(),
             collection_duration_ms: 1.0,
         }
     }
@@ -476,14 +471,8 @@ mod tests {
             Verdict::FeasibleWithCaveats,
             "deepseek-v2-lite 在 2GB 可用内存应 FeasibleWithCaveats"
         );
-        assert!(
-            !assessment.constraints.is_empty(),
-            "应有约束"
-        );
-        assert!(
-            !assessment.safe_options.is_empty(),
-            "应有降级方案"
-        );
+        assert!(!assessment.constraints.is_empty(), "应有约束");
+        assert!(!assessment.safe_options.is_empty(), "应有降级方案");
     }
 
     // UT-AS-003: 过大模型 + 极小内存 → Infeasible
@@ -548,7 +537,7 @@ mod tests {
     fn test_ut_as_005_model_size() {
         let req = DeploymentRequest {
             model_name: None,
-            model_size_b: Some(7000000000), // 7B
+            model_size_b: Some(7), // 7B
             quantization: Some("Q4_K_M".to_string()),
             context_window: Some(4096),
         };
@@ -643,8 +632,16 @@ mod tests {
         };
         let dl = AssessmentEngine::estimate_download_mb(&req);
         // 8B * 1.2 / 1MB ≈ 9600 MB
-        assert!(dl > 9000, "llama3-8b download should be >9000MB, got {}", dl);
-        assert!(dl < 10000, "llama3-8b download should be <10000MB, got {}", dl);
+        assert!(
+            dl > 9000,
+            "llama3-8b download should be >9000MB, got {}",
+            dl
+        );
+        assert!(
+            dl < 10000,
+            "llama3-8b download should be <10000MB, got {}",
+            dl
+        );
     }
 
     // UT-AS-011: model_size_b 模式 vram 估算
@@ -652,7 +649,7 @@ mod tests {
     fn test_ut_as_011_vram_estimate() {
         let req = DeploymentRequest {
             model_name: None,
-            model_size_b: Some(8000000000),
+            model_size_b: Some(8),
             quantization: Some("Q4_K_M".to_string()),
             context_window: Some(4096),
         };

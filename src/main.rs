@@ -1,21 +1,27 @@
 mod calibration;
 mod collector;
 mod config;
+mod container;
 mod engine;
+mod environment;
 mod gpu;
 mod models;
-mod state_machine;
-mod thermal;
 mod multi_agent;
+mod remote;
+mod state_machine;
+mod suggest;
+mod thermal;
+mod trends;
 
 use calibration::algorithm::CalibrationEngine;
-use calibration::CalibrationStore;
 use calibration::csv_store::CsvStore;
+use calibration::CalibrationStore;
 use clap::Parser;
 use collector::registry::CollectorRegistry;
 use engine::assessment::{AssessmentEngine, DeploymentRequest};
 use state_machine::{StateMachine, StateMachineConfig, StateTransition};
 use std::path::PathBuf;
+use trends::{HistoryStore, TrendAnalyzer};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -30,7 +36,11 @@ margin = 30.0
 "#;
 
 #[derive(Parser)]
-#[command(name = "hawk-eye-mem", version = "0.3.0", about = "AI-Native memory monitoring")]
+#[command(
+    name = "hawk-eye-mem",
+    version = "0.3.0",
+    about = "AI-Native memory monitoring"
+)]
 struct Cli {
     // === 原有参数 ===
     #[arg(long, conflicts_with = "metric")]
@@ -83,10 +93,68 @@ struct Cli {
     /// 列出检测到的 GPU 及其采集方式（NVML/nvidia-smi/ROCm/Metal）
     #[arg(long)]
     gpu_list: bool,
+
+    // === V0.4 W1-W2 环境指纹参数 ===
+    /// 输出当前环境指纹 JSON
+    #[arg(long)]
+    env_fingerprint: bool,
+
+    /// 重置环境指纹（需 --force 跳过确认）
+    #[arg(long)]
+    reset_environment: bool,
+
+    /// 跳过确认（用于 --reset-environment 脚本模式）
+    #[arg(long)]
+    force: bool,
+
+    // === V0.4 W2 CR-06: 告警模式 ===
+    /// 告警模式：仅当压力 critical 时输出最小化 JSON 单行（pressure/available_mb/action）
+    #[arg(long)]
+    alert: bool,
+
+    // === REQ-001: 物理AI · 并发度建议 ===
+    /// 根据系统资源建议最佳并发数
+    #[arg(long)]
+    suggest_concurrency: bool,
+
+    /// 每个子任务的内存预算（MB），配合 --suggest-concurrency 使用（默认 1024MB）
+    #[arg(long, requires = "suggest_concurrency")]
+    task_memory: Option<u64>,
+
+    // === V0.4 W2-W3: 远程采集 HTTP 服务端 ===
+    /// 启动远程采集 HTTP 服务端模式
+    #[arg(long)]
+    serve: bool,
+    /// HTTP 服务端监听端口（默认 9240，仅 --serve 模式下有效）
+    #[arg(long, default_value = "9240")]
+    port: u16,
+
+    // === V0.4 趋势分析参数 ===
+    /// 输出内存趋势分析报告
+    #[arg(long)]
+    trend: bool,
+    /// 清空历史记录数据
+    #[arg(long)]
+    clear_history: bool,
 }
 
 fn main() {
     let cli = Cli::parse();
+
+    // === --serve：远程采集 HTTP 服务端模式 ===
+    if cli.serve {
+        let api_key = config::AppConfig::load(None)
+            .ok()
+            .flatten()
+            .and_then(|c| c.remote)
+            .and_then(|r| r.api_key);
+        let server = remote::RemoteServer::new(cli.port, api_key);
+        server.start().unwrap_or_else(|e| {
+            eprintln!("Failed to start server: {}", e);
+            std::process::exit(1);
+        });
+        return;
+    }
 
     // 首次运行检查
     let onboarded_path = get_onboarded_path();
@@ -142,10 +210,7 @@ fn main() {
     if cli.calibration_stats {
         if let Some(ref model) = cli.model_name {
             let path = cal_base_path();
-            let store = calibration::csv_store::CsvStore::new(
-                path.join("calibration"),
-                100,
-            );
+            let store = calibration::csv_store::CsvStore::new(path.join("calibration"), 100);
             let engine = calibration::algorithm::CalibrationEngine::new(store);
             let stats = engine.stats(model).unwrap_or_else(|e| {
                 eprintln!("Failed to get calibration stats: {}", e);
@@ -176,10 +241,7 @@ fn main() {
     if cli.reset_calibration {
         if let Some(ref model) = cli.model_name {
             let path = cal_base_path();
-            let store = calibration::csv_store::CsvStore::new(
-                path.join("calibration"),
-                100,
-            );
+            let store = calibration::csv_store::CsvStore::new(path.join("calibration"), 100);
             let model_hash = calibration::hash_model_name(model).unwrap_or_else(|e| {
                 eprintln!("Failed to hash model name: {}", e);
                 std::process::exit(1);
@@ -204,10 +266,7 @@ fn main() {
                 for gpu in &gpus {
                     println!(
                         "  {:<30} | {}MB/{}MB | {}",
-                        gpu.name,
-                        gpu.vram_used_mb,
-                        gpu.vram_total_mb,
-                        gpu.backend
+                        gpu.name, gpu.vram_used_mb, gpu.vram_total_mb, gpu.backend
                     );
                 }
                 println!();
@@ -217,6 +276,124 @@ fn main() {
             }
             _ => {
                 eprintln!("  Unexpected output from GPU collector");
+            }
+        }
+        return;
+    }
+
+    if cli.alert {
+        handle_alert_mode(&cli);
+        return;
+    }
+
+    // === REQ-001: --suggest-concurrency 物理AI ===
+    if cli.suggest_concurrency {
+        let mut registry = CollectorRegistry::new();
+        if let Ok(Some(cfg)) = config::AppConfig::load(cli.config.as_deref()) {
+            if let Some(dirs) = cfg.directories {
+                registry.set_directories(dirs.model_cache);
+            }
+        }
+        let snapshot = registry.collect_all();
+        let result = suggest::suggest_concurrency(&snapshot, cli.task_memory);
+        println!("{}", serde_json::to_string_pretty(&result).unwrap());
+        return;
+    }
+
+    // === V0.4 W1-W2: 环境指纹处理 ===
+    let fingerprint_store = environment::store::FingerprintStore::new();
+
+    // --env-fingerprint：输出当前指纹
+    if cli.env_fingerprint {
+        match fingerprint_store.load_current() {
+            Ok(Some(fp)) => {
+                println!("{}", serde_json::to_string_pretty(&fp).unwrap());
+            }
+            Ok(None) => {
+                eprintln!("No environment fingerprint found. Run 'hawk-eye-mem' without --env-fingerprint to generate one.");
+                std::process::exit(0);
+            }
+            Err(e) => {
+                eprintln!("Failed to read environment fingerprint: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+
+    // --reset-environment：重置（需要 --force 跳过确认）
+    if cli.reset_environment {
+        if !cli.force {
+            eprint!(
+                "Reset environment fingerprint? This will remove all stored fingerprints. [y/N]: "
+            );
+            use std::io::Write;
+            std::io::stdout().flush().ok();
+            let mut input = String::new();
+            std::io::stdin().read_line(&mut input).ok();
+            if input.trim().to_lowercase() != "y" {
+                eprintln!("Cancelled.");
+                std::process::exit(0);
+            }
+        }
+        match fingerprint_store.reset() {
+            Ok(_) => {
+                println!("Environment fingerprint has been reset.");
+            }
+            Err(e) => {
+                eprintln!("Failed to reset environment fingerprint: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+
+    // === V0.4 W2 CR-06: --alert 告警模式 ===
+    if cli.alert {
+        handle_alert_mode(&cli);
+        return;
+    }
+
+    // === V0.4 趋势分析参数处理 ===
+
+    // --clear-history：清空历史记录
+    if cli.clear_history {
+        let retention_days = load_history_retention(&cli).unwrap_or(30);
+        let store = HistoryStore::new(retention_days);
+        match store.clear() {
+            Ok(_) => {
+                println!("History data cleared.");
+            }
+            Err(e) => {
+                eprintln!("Failed to clear history: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+
+    // --trend：输出趋势分析报告
+    if cli.trend {
+        let retention_days = load_history_retention(&cli).unwrap_or(30);
+        let store = HistoryStore::new(retention_days);
+        let points = match store.read_all() {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("Failed to read history: {}", e);
+                std::process::exit(1);
+            }
+        };
+
+        match TrendAnalyzer::analyze(&points) {
+            Some(report) => {
+                println!("{}", serde_json::to_string_pretty(&report).unwrap());
+            }
+            None => {
+                eprintln!(
+                    "Insufficient data for trend analysis (need >= 10 points, found {})",
+                    points.len()
+                );
+                std::process::exit(0);
             }
         }
         return;
@@ -254,6 +431,66 @@ fn main() {
     // 记录上一次状态机的 action（状态未变化时沿用）
     let mut last_sm_action: &'static str = "ok";
 
+    // === V0.4 W1-W2: 环境指纹 — 每次运行自动保存并检测变更 ===
+    let env_store = environment::store::FingerprintStore::new();
+    let (current_fp, environment_change_report) = {
+        // 快速采集一次以生成指纹（硬件级信息，与循环中的采集正交）
+        let mut registry = CollectorRegistry::new();
+        if let Ok(Some(cfg)) = config::AppConfig::load(cli.config.as_deref()) {
+            if let Some(dirs) = cfg.directories {
+                registry.set_directories(dirs.model_cache);
+            }
+        }
+        let snap = registry.collect_all();
+        let hostname = std::env::var("HOSTNAME").unwrap_or_else(|_| "unknown".to_string());
+        let platform = std::env::consts::OS;
+        let cpu_cores = num_cpus::get() as u32;
+        let total_mem = snap.memory.as_ref().map(|m| m.total_mb).unwrap_or(0);
+        let gpu_names: Vec<String> = snap
+            .gpu
+            .as_ref()
+            .map(|g| g.iter().map(|gpu| gpu.name.clone()).collect())
+            .unwrap_or_default();
+        let disk_total = snap.disk.as_ref().map(|d| d.total_mb).unwrap_or(0);
+        let container = container::ContainerDetector::detect_runtime();
+
+        let fp = environment::EnvironmentFingerprint::generate(
+            &hostname, platform, cpu_cores, total_mem, gpu_names, disk_total, container,
+        );
+
+        // 加载旧指纹做变更检测
+        let previous_fp = env_store.load_previous().ok().flatten();
+        let report = previous_fp.as_ref().and_then(|prev| {
+            let changes = fp.detect_changes(prev);
+            if changes.is_empty() {
+                return None;
+            }
+            let recommendation =
+                environment::EnvironmentFingerprint::generate_recommendation(&changes);
+            eprintln!("[hawk-eye-mem] Environment change detected:");
+            for c in &changes {
+                eprintln!(
+                    "  • {}: {} → {} ({})",
+                    c.resource, c.previous_label, c.current_label, c.direction
+                );
+            }
+            if !recommendation.is_empty() {
+                eprintln!("  💡 {}", recommendation);
+            }
+            Some(environment::EnvironmentChangeReport {
+                detected: true,
+                previous_fingerprint_id: Some(prev.id.clone()),
+                changes,
+                new_recommendation: Some(recommendation),
+            })
+        });
+
+        (fp, report)
+    };
+
+    // 保存新指纹
+    let _ = env_store.save(&current_fp);
+
     while running.load(Ordering::SeqCst) && (infinite || iter < count) {
         if iter > 0 && interval > 0 {
             let chunk = std::time::Duration::from_millis(100);
@@ -275,6 +512,7 @@ fn main() {
             }
             if let Some(ma) = cfg.multi_agent {
                 registry.set_extra_agent_processes(ma.extra_process_names);
+                registry.set_agent_custom_names(ma.names);
             }
         }
         let snapshot = registry.collect_all();
@@ -312,8 +550,13 @@ fn main() {
             let app_config = load_config(&cli);
             let result = calc_estimate(metrics, &app_config);
             let output = build_json_output(
-                &snapshot, &result, cli.tokens_processed, recorded_calibration,
-                &sm_transition, last_sm_action,
+                &snapshot,
+                &result,
+                cli.tokens_processed,
+                recorded_calibration,
+                &sm_transition,
+                last_sm_action,
+                &environment_change_report,
             );
             println!("{}", serde_json::to_string(&output).unwrap());
         } else if let Some(metric) = &cli.metric {
@@ -322,8 +565,13 @@ fn main() {
             let app_config = load_config(&cli);
             let result = calc_estimate(metrics, &app_config);
             let output = build_json_output(
-                &snapshot, &result, cli.tokens_processed, recorded_calibration,
-                &sm_transition, last_sm_action,
+                &snapshot,
+                &result,
+                cli.tokens_processed,
+                recorded_calibration,
+                &sm_transition,
+                last_sm_action,
+                &environment_change_report,
             );
             println!("{}", serde_json::to_string_pretty(&output).unwrap());
         }
@@ -347,6 +595,10 @@ fn handle_can_run(cli: &Cli) {
     if let Ok(Some(cfg)) = config::AppConfig::load(cli.config.as_deref()) {
         if let Some(dirs) = cfg.directories {
             registry.set_directories(dirs.model_cache);
+        }
+        if let Some(ma) = cfg.multi_agent {
+            registry.set_extra_agent_processes(ma.extra_process_names);
+            registry.set_agent_custom_names(ma.names);
         }
     }
     let snapshot = registry.collect_all();
@@ -386,9 +638,7 @@ fn handle_can_run(cli: &Cli) {
 }
 
 /// 在比较结果中找到推荐项
-fn find_recommended(
-    results: &[engine::assessment::DeploymentAssessment],
-) -> Option<usize> {
+fn find_recommended(results: &[engine::assessment::DeploymentAssessment]) -> Option<usize> {
     use engine::assessment::Verdict;
 
     // 优先选择 Feasible
@@ -446,10 +696,7 @@ fn print_compare_output(
         "{BOLD}{:<20} {:<14} {:<40} {:<10}{RESET}",
         "模型名称", "判定结果", "约束摘要", "安全方案数"
     );
-    println!(
-        "{BOLD}{:-<90}{RESET}",
-        ""
-    );
+    println!("{BOLD}{:-<90}{RESET}", "");
 
     for (i, a) in results.iter().enumerate() {
         let color = match a.verdict {
@@ -464,7 +711,11 @@ fn print_compare_output(
             engine::assessment::Verdict::Infeasible => "❌ 不可行",
         };
 
-        let star = if Some(i) == recommended_idx { " ⭐" } else { "   " };
+        let star = if Some(i) == recommended_idx {
+            " ⭐"
+        } else {
+            "   "
+        };
 
         // 约束摘要：每个资源一行简要信息
         let constraints_summary = if a.constraints.is_empty() {
@@ -515,10 +766,48 @@ fn truncate_str(s: &str, max_width: usize) -> String {
 }
 
 // ============================================================================
-// --list-models 模式
+// --alert 告警模式 (CR-06)
 // ============================================================================
 
+/// --alert 模式：仅当压力 critical 时输出最小化 JSON 单行
+fn handle_alert_mode(cli: &Cli) {
+    let mut registry = CollectorRegistry::new();
+    if let Ok(Some(cfg)) = config::AppConfig::load(cli.config.as_deref()) {
+        if let Some(dirs) = cfg.directories {
+            registry.set_directories(dirs.model_cache);
+        }
+    }
+    let snapshot = registry.collect_all();
+
+    if let Some(ref metrics) = snapshot.memory {
+        let (pressure, _, _) = crate::engine::guidance::GuidanceGenerator::classify(
+            metrics.available_mb,
+            metrics.used_percent,
+        );
+
+        if pressure == "critical" || pressure == "high" {
+            let action = match pressure {
+                "critical" => "abort_safely",
+                "high" => "reduce_context",
+                _ => "ok",
+            };
+            let alert = serde_json::json!({
+                "pressure": pressure,
+                "available_mb": metrics.available_mb,
+                "action": action,
+            });
+            println!("{}", serde_json::to_string(&alert).unwrap());
+        }
+        // 非 critical 时无输出（CR-06: 只输出 critical 时的单行）
+    }
+}
+
+// ============================================================================
+// --list-models 模式
+// ============================================================================
+/// 模型列表表格
 fn print_model_table() {
+    use crate::engine::assessment::{AssessmentEngine, DeploymentRequest};
     let models = models::ModelLibrary::all();
 
     // 收集一次系统资源快照
@@ -542,10 +831,7 @@ fn print_model_table() {
         "{BOLD}{:<20} {:<10} {:<6} {:<28} {:<14} {:<36} {:<10}{RESET}",
         "模型名称", "参数量", "BPT", "量化", "上下文", "来源", "更新"
     );
-    println!(
-        "{BOLD}{:-<128}{RESET}",
-        ""
-    );
+    println!("{BOLD}{:-<128}{RESET}", "");
 
     for m in models {
         let req = DeploymentRequest {
@@ -613,6 +899,14 @@ fn print_quick_guide() {
     eprintln!("================================================================================");
 }
 
+/// 从配置中读取 history.retention_days（默认 30）
+fn load_history_retention(cli: &Cli) -> Option<u64> {
+    match config::AppConfig::load(cli.config.as_deref()) {
+        Ok(Some(cfg)) => cfg.history.and_then(|h| h.retention_days),
+        _ => None,
+    }
+}
+
 fn load_config(cli: &Cli) -> Option<engine::ModelConfig> {
     match config::AppConfig::load(cli.config.as_deref()) {
         Ok(Some(cfg)) => cfg.model.map(|m| engine::ModelConfig {
@@ -648,6 +942,7 @@ fn build_json_output(
     recorded: bool,
     sm_transition: &Option<StateTransition>,
     sm_action: &'static str,
+    environment_changes: &Option<environment::EnvironmentChangeReport>,
 ) -> serde_json::Value {
     let metrics = snapshot
         .memory
@@ -664,7 +959,10 @@ fn build_json_output(
     // T10: 状态机模式 — 用状态机的 action 覆盖即时判定的 action
     if sm_transition.is_some() {
         if let Some(obj) = guidance_value.as_object_mut() {
-            obj.insert("action".to_string(), serde_json::Value::String(sm_action.to_string()));
+            obj.insert(
+                "action".to_string(),
+                serde_json::Value::String(sm_action.to_string()),
+            );
             // 状态未变化时补充说明
             if sm_action == "no_change" {
                 obj.insert(
@@ -740,6 +1038,13 @@ fn build_json_output(
                 "reason": "需要两次连续采集才能计算 delta。请重复此命令或在 --interval 循环中使用。",
                 "note": "Calibration requires two consecutive snapshots. Run twice or use --interval mode."
             });
+        }
+    }
+
+    // V0.4 W1-W2: 输出环境变更报告
+    if let Some(ref report) = environment_changes {
+        if report.detected {
+            output["environment_change"] = serde_json::to_value(report).unwrap();
         }
     }
 
@@ -822,14 +1127,16 @@ mod tests {
         let make = |v: Verdict, n: usize| DeploymentAssessment {
             request: serde_json::json!({}),
             verdict: v,
-            constraints: (0..n).map(|i| Constraint {
-                resource: format!("r{}", i),
-                required_mb: 100,
-                available_mb: 50,
-                gap_mb: 50,
-                severity: "warning".to_string(),
-                suggestion: "test".to_string(),
-            }).collect(),
+            constraints: (0..n)
+                .map(|i| Constraint {
+                    resource: format!("r{}", i),
+                    required_mb: 100,
+                    available_mb: 50,
+                    gap_mb: 50,
+                    severity: "warning".to_string(),
+                    suggestion: "test".to_string(),
+                })
+                .collect(),
             safe_options: vec![],
         };
 
@@ -852,14 +1159,16 @@ mod tests {
         let make = |v: Verdict, n: usize| DeploymentAssessment {
             request: serde_json::json!({}),
             verdict: v,
-            constraints: (0..n).map(|i| Constraint {
-                resource: format!("r{}", i),
-                required_mb: 100,
-                available_mb: 50,
-                gap_mb: 50,
-                severity: "warning".to_string(),
-                suggestion: "test".to_string(),
-            }).collect(),
+            constraints: (0..n)
+                .map(|i| Constraint {
+                    resource: format!("r{}", i),
+                    required_mb: 100,
+                    available_mb: 50,
+                    gap_mb: 50,
+                    severity: "warning".to_string(),
+                    suggestion: "test".to_string(),
+                })
+                .collect(),
             safe_options: vec![],
         };
 

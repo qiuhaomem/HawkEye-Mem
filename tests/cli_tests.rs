@@ -1,5 +1,5 @@
-use std::process::Command;
 use std::path::PathBuf;
+use std::process::Command;
 use std::time::Duration;
 
 /// 获取编译后的二进制路径
@@ -30,10 +30,15 @@ fn run_bin(args: &[&str]) -> (String, String, i32) {
 fn test_it_cli_001_json_output() {
     let (stdout, _, code) = run_bin(&["--json"]);
     assert_eq!(code, 0, "exit code should be 0");
-    let v: serde_json::Value = serde_json::from_str(&stdout)
-        .expect("stdout should be valid JSON");
-    assert!(v.get("system").is_some(), "JSON should contain 'system' key");
-    assert!(v.get("agent_guidance").is_some(), "JSON should contain 'agent_guidance' key");
+    let v: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be valid JSON");
+    assert!(
+        v.get("system").is_some(),
+        "JSON should contain 'system' key"
+    );
+    assert!(
+        v.get("agent_guidance").is_some(),
+        "JSON should contain 'agent_guidance' key"
+    );
 }
 
 // IT-CLI-002: --metric available_mb 输出纯数字
@@ -42,7 +47,11 @@ fn test_it_cli_002_metric_available_mb() {
     let (stdout, _, code) = run_bin(&["--metric", "available_mb"]);
     assert_eq!(code, 0, "exit code should be 0");
     let trimmed = stdout.trim();
-    assert!(trimmed.parse::<u64>().is_ok(), "stdout should be a number, got: {}", trimmed);
+    assert!(
+        trimmed.parse::<u64>().is_ok(),
+        "stdout should be a number, got: {}",
+        trimmed
+    );
 }
 
 // IT-CLI-002B: --metric 输出无污染
@@ -53,7 +62,11 @@ fn test_it_cli_002b_metric_clean() {
     // 只允许数字 + 换行
     let is_clean = stdout.trim().parse::<u64>().is_ok()
         && stdout.chars().all(|c| c.is_ascii_digit() || c == '\n');
-    assert!(is_clean, "stdout should be only digits + newline, got: {:?}", stdout);
+    assert!(
+        is_clean,
+        "stdout should be only digits + newline, got: {:?}",
+        stdout
+    );
 }
 
 // IT-CLI-003: --metric pressure 输出字符串
@@ -74,7 +87,11 @@ fn test_it_cli_003_metric_pressure() {
 fn test_it_cli_004_invalid_flag() {
     let (_, stderr, code) = run_bin(&["--xyz"]);
     assert_ne!(code, 0, "exit code should be non-zero");
-    assert!(stderr.contains("error"), "stderr should contain error, got: {}", stderr);
+    assert!(
+        stderr.contains("error"),
+        "stderr should contain error, got: {}",
+        stderr
+    );
 }
 
 // IT-CLI-005: --help 显示帮助
@@ -82,7 +99,10 @@ fn test_it_cli_004_invalid_flag() {
 fn test_it_cli_005_help() {
     let (stdout, _, code) = run_bin(&["--help"]);
     assert_eq!(code, 0);
-    assert!(stdout.contains("memory monitoring"), "help should contain 'memory monitoring'");
+    assert!(
+        stdout.contains("memory monitoring"),
+        "help should contain 'memory monitoring'"
+    );
 }
 
 // IT-CLI-006: --version 输出版本
@@ -100,7 +120,11 @@ fn test_it_cli_007_config_load() {
     let dir = std::env::temp_dir().join("hawkeye_test_it007");
     let _ = std::fs::create_dir_all(&dir);
     let config_path = dir.join("config.toml");
-    std::fs::write(&config_path, b"[model]\nbytes_per_token = 4000\nmargin = 15.0").unwrap();
+    std::fs::write(
+        &config_path,
+        b"[model]\nbytes_per_token = 4000\nmargin = 15.0",
+    )
+    .unwrap();
 
     let (stdout, _, code) = run_bin(&["--config", config_path.to_str().unwrap(), "--json"]);
     let _ = std::fs::remove_dir_all(&dir);
@@ -108,7 +132,10 @@ fn test_it_cli_007_config_load() {
 
     let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     let confidence = v["agent_guidance"]["confidence"].as_str().unwrap_or("");
-    assert_eq!(confidence, "calibrated", "with config, confidence should be 'calibrated'");
+    assert_eq!(
+        confidence, "calibrated",
+        "with config, confidence should be 'calibrated'"
+    );
 }
 
 // IT-CLI-008: 环境变量配置加载
@@ -117,7 +144,11 @@ fn test_it_cli_008_env_config() {
     let dir = std::env::temp_dir().join("hawkeye_test_it008");
     let _ = std::fs::create_dir_all(&dir);
     let config_path = dir.join("config.toml");
-    std::fs::write(&config_path, b"[model]\nbytes_per_token = 3000\nmargin = 10.0").unwrap();
+    std::fs::write(
+        &config_path,
+        b"[model]\nbytes_per_token = 3000\nmargin = 10.0",
+    )
+    .unwrap();
 
     std::env::set_var("HAWKEYE_MEM_CONFIG", config_path.to_str().unwrap());
     let (stdout, _, code) = run_bin(&["--json"]);
@@ -127,7 +158,10 @@ fn test_it_cli_008_env_config() {
 
     let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     let confidence = v["agent_guidance"]["confidence"].as_str().unwrap_or("");
-    assert_eq!(confidence, "calibrated", "with env config, confidence should be 'calibrated'");
+    assert_eq!(
+        confidence, "calibrated",
+        "with env config, confidence should be 'calibrated'"
+    );
 }
 
 // IT-CLI-009: --interval 与 --count 组合
@@ -146,11 +180,18 @@ fn test_it_cli_009_interval_count() {
     for (i, line) in lines.iter().enumerate() {
         let v: serde_json::Value = serde_json::from_str(line)
             .unwrap_or_else(|_| panic!("line {} should be valid JSON: {}", i, line));
-        assert!(v.get("system").is_some(), "line {} should have 'system' key", i);
+        assert!(
+            v.get("system").is_some(),
+            "line {} should have 'system' key",
+            i
+        );
     }
 
     // 间隔约1秒
-    assert!(elapsed >= Duration::from_secs(1), "should wait ~1s between outputs");
+    assert!(
+        elapsed >= Duration::from_secs(1),
+        "should wait ~1s between outputs"
+    );
 }
 
 // IT-CLI-009B: JSON Lines 每行独立合法JSON
@@ -162,7 +203,11 @@ fn test_it_cli_009b_json_lines_independent() {
     for (i, line) in stdout.trim().lines().enumerate() {
         let v: serde_json::Value = serde_json::from_str(line)
             .unwrap_or_else(|_| panic!("line {} should be valid independent JSON", i));
-        assert!(v.is_object(), "line {} should be a JSON object, not array", i);
+        assert!(
+            v.is_object(),
+            "line {} should be a JSON object, not array",
+            i
+        );
     }
 }
 
@@ -171,7 +216,10 @@ fn test_it_cli_009b_json_lines_independent() {
 fn test_it_cli_011_metric_json_mutex() {
     let (_, stderr, code) = run_bin(&["--json", "--metric", "available_mb"]);
     assert_ne!(code, 0, "exit code should be non-zero for conflicting args");
-    assert!(stderr.contains("cannot be used with"), "stderr should mention conflict");
+    assert!(
+        stderr.contains("cannot be used with"),
+        "stderr should mention conflict"
+    );
 }
 
 // ===================== JSON 结构验证 =====================
@@ -182,10 +230,16 @@ fn test_it_json_001_timestamp_rfc3339() {
     let (stdout, _, code) = run_bin(&["--json"]);
     assert_eq!(code, 0);
     let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let ts = v["timestamp"].as_str().expect("timestamp should be a string");
+    let ts = v["timestamp"]
+        .as_str()
+        .expect("timestamp should be a string");
     // 尝试解析RFC3339
     let parsed = chrono::DateTime::parse_from_rfc3339(ts);
-    assert!(parsed.is_ok(), "timestamp should be RFC3339 format, got: {}", ts);
+    assert!(
+        parsed.is_ok(),
+        "timestamp should be RFC3339 format, got: {}",
+        ts
+    );
 }
 
 // IT-JSON-002: collection_duration_ms 为合理正数
@@ -194,7 +248,9 @@ fn test_it_json_002_collection_duration() {
     let (stdout, _, code) = run_bin(&["--json"]);
     assert_eq!(code, 0);
     let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let dur = v["collection_duration_ms"].as_f64().expect("collection_duration_ms should be a number");
+    let dur = v["collection_duration_ms"]
+        .as_f64()
+        .expect("collection_duration_ms should be a number");
     assert!(dur >= 0.0, "duration should be >= 0, got: {}", dur);
     assert!(dur < 100.0, "duration should be < 100ms, got: {}", dur);
 }
@@ -220,7 +276,10 @@ fn test_it_json_004_estimated_window_int() {
     assert_eq!(code, 0);
     let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     let window = &v["agent_guidance"]["estimated_safe_context_window"];
-    assert!(window.is_i64() || window.is_u64(), "estimated_safe_context_window should be integer");
+    assert!(
+        window.is_i64() || window.is_u64(),
+        "estimated_safe_context_window should be integer"
+    );
 }
 
 // IT-JSON-005: JSON Schema关键字段存在性
@@ -232,19 +291,45 @@ fn test_it_json_005_schema_fields_exist() {
 
     // 验证system字段
     let sys = v.get("system").expect("'system' field must exist");
-    assert!(sys.get("total_mb").and_then(|x| x.as_u64()).is_some(), "system.total_mb must be u64");
-    assert!(sys.get("used_mb").and_then(|x| x.as_u64()).is_some(), "system.used_mb must be u64");
-    assert!(sys.get("available_mb").and_then(|x| x.as_u64()).is_some(), "system.available_mb must be u64");
-    assert!(sys.get("used_percent").and_then(|x| x.as_f64()).is_some(), "system.used_percent must be f64");
+    assert!(
+        sys.get("total_mb").and_then(|x| x.as_u64()).is_some(),
+        "system.total_mb must be u64"
+    );
+    assert!(
+        sys.get("used_mb").and_then(|x| x.as_u64()).is_some(),
+        "system.used_mb must be u64"
+    );
+    assert!(
+        sys.get("available_mb").and_then(|x| x.as_u64()).is_some(),
+        "system.available_mb must be u64"
+    );
+    assert!(
+        sys.get("used_percent").and_then(|x| x.as_f64()).is_some(),
+        "system.used_percent must be f64"
+    );
 
     // 验证agent_guidance字段
-    let guidance = v.get("agent_guidance").expect("'agent_guidance' field must exist");
-    assert!(guidance.get("action").is_some() || guidance.get("pressure").is_some(),
-        "agent_guidance must contain 'action' or 'pressure'");
-    assert!(guidance.get("estimated_safe_context_window").and_then(|x| x.as_u64()).is_some(),
-        "agent_guidance.estimated_safe_context_window must be u64");
-    assert!(guidance.get("confidence").and_then(|x| x.as_str()).is_some(),
-        "agent_guidance.confidence must be string");
+    let guidance = v
+        .get("agent_guidance")
+        .expect("'agent_guidance' field must exist");
+    assert!(
+        guidance.get("action").is_some() || guidance.get("pressure").is_some(),
+        "agent_guidance must contain 'action' or 'pressure'"
+    );
+    assert!(
+        guidance
+            .get("estimated_safe_context_window")
+            .and_then(|x| x.as_u64())
+            .is_some(),
+        "agent_guidance.estimated_safe_context_window must be u64"
+    );
+    assert!(
+        guidance
+            .get("confidence")
+            .and_then(|x| x.as_str())
+            .is_some(),
+        "agent_guidance.confidence must be string"
+    );
 }
 
 // ===================== 错误路径测试 =====================
@@ -265,8 +350,11 @@ fn test_it_cli_012_config_permission_error() {
             }
         }
         // 或者stderr有错误信息
-        assert!(stderr.contains("error") || stderr.contains("Error"),
-            "should report error in stderr: {}", stderr);
+        assert!(
+            stderr.contains("error") || stderr.contains("Error"),
+            "should report error in stderr: {}",
+            stderr
+        );
     }
 }
 
@@ -278,21 +366,34 @@ fn test_it_int_001_config_lifecycle() {
     // Step 1: 无配置时运行
     let (stdout1, _, _) = run_bin(&["--json"]);
     let v1: serde_json::Value = serde_json::from_str(&stdout1).unwrap();
-    let conf1 = v1["agent_guidance"]["confidence"].as_str().unwrap_or("").to_string();
+    let conf1 = v1["agent_guidance"]["confidence"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
 
     // Step 2: 创建配置
     let dir = std::env::temp_dir().join("hawkeye_test_int001");
     let _ = std::fs::create_dir_all(&dir);
     let config_path = dir.join("config.toml");
-    std::fs::write(&config_path, b"[model]\nbytes_per_token = 4000\nmargin = 20.0").unwrap();
+    std::fs::write(
+        &config_path,
+        b"[model]\nbytes_per_token = 4000\nmargin = 20.0",
+    )
+    .unwrap();
 
     let (stdout2, _, _) = run_bin(&["--config", config_path.to_str().unwrap(), "--json"]);
     let _ = std::fs::remove_dir_all(&dir);
     let v2: serde_json::Value = serde_json::from_str(&stdout2).unwrap();
-    let conf2 = v2["agent_guidance"]["confidence"].as_str().unwrap_or("").to_string();
+    let conf2 = v2["agent_guidance"]["confidence"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
 
     // 验证状态变化
-    assert_eq!(conf1, "conservative", "without config should be 'conservative'");
+    assert_eq!(
+        conf1, "conservative",
+        "without config should be 'conservative'"
+    );
     assert_eq!(conf2, "calibrated", "with config should be 'calibrated'");
 }
 
@@ -314,28 +415,45 @@ fn test_it_first_onboarding_full() {
     assert_eq!(code, 0, "exit code should be 0");
 
     let lower = stderr.to_lowercase();
-    assert!(lower.contains("no warranty"),
-        "stderr must contain 'No warranty', got: {}", stderr);
-    assert!(lower.contains("use at your own risk"),
-        "stderr must contain 'Use at your own risk', got: {}", stderr);
+    assert!(
+        lower.contains("no warranty"),
+        "stderr must contain 'No warranty', got: {}",
+        stderr
+    );
+    assert!(
+        lower.contains("use at your own risk"),
+        "stderr must contain 'Use at your own risk', got: {}",
+        stderr
+    );
 
     // === IT-FIRST-002: 免责声明先于引导输出顺序 ===
     let no_warranty = stderr.find("No warranty");
     let quick_start = stderr.find("Quick Start");
-    assert!(no_warranty.is_some() && quick_start.is_some(),
-        "Both 'No warranty' and 'Quick Start' must be in stderr");
-    assert!(no_warranty.unwrap() < quick_start.unwrap(),
-        "Disclaimer must appear before Quick Start guide");
+    assert!(
+        no_warranty.is_some() && quick_start.is_some(),
+        "Both 'No warranty' and 'Quick Start' must be in stderr"
+    );
+    assert!(
+        no_warranty.unwrap() < quick_start.unwrap(),
+        "Disclaimer must appear before Quick Start guide"
+    );
 
     // === IT-FIRST-003: .onboarded文件创建后不再显示 ===
     let onboarded = tmp_home.join(".config/hawk-eye-mem/.onboarded");
-    assert!(onboarded.exists(), ".onboarded file should exist after first run");
+    assert!(
+        onboarded.exists(),
+        ".onboarded file should exist after first run"
+    );
 
     let (_, stderr2, _) = run_bin(&[]);
-    assert!(!stderr2.contains("No warranty"),
-        "On subsequent runs, 'No warranty' should NOT appear");
-    assert!(!stderr2.contains("Quick Start"),
-        "On subsequent runs, 'Quick Start' should NOT appear");
+    assert!(
+        !stderr2.contains("No warranty"),
+        "On subsequent runs, 'No warranty' should NOT appear"
+    );
+    assert!(
+        !stderr2.contains("Quick Start"),
+        "On subsequent runs, 'Quick Start' should NOT appear"
+    );
 
     // 清理
     let _ = std::fs::remove_dir_all(&tmp_home);
@@ -353,14 +471,16 @@ fn test_it_first_onboarding_full() {
 fn test_it_cal_001_json_with_tokens_processed() {
     let (stdout, _, code) = run_bin(&["--json", "--tokens-processed", "4096"]);
     assert_eq!(code, 0, "exit code should be 0");
-    let v: serde_json::Value = serde_json::from_str(&stdout)
-        .expect("stdout should be valid JSON");
+    let v: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be valid JSON");
     assert!(
         v.get("_calibration").is_some(),
         "JSON should contain '_calibration' key when --tokens-processed is provided"
     );
     let cal = v["_calibration"].as_object().unwrap();
-    assert_eq!(cal["tokens_processed"], 4096, "tokens_processed should match");
+    assert_eq!(
+        cal["tokens_processed"], 4096,
+        "tokens_processed should match"
+    );
     // 单次调用无前一次快照，故 status = skipped
     assert_eq!(
         cal["status"], "skipped",
@@ -374,8 +494,7 @@ fn test_it_cal_001_json_with_tokens_processed() {
 fn test_it_cal_002_json_without_tokens_processed() {
     let (stdout, _, code) = run_bin(&["--json"]);
     assert_eq!(code, 0);
-    let v: serde_json::Value = serde_json::from_str(&stdout)
-        .expect("stdout should be valid JSON");
+    let v: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be valid JSON");
     assert!(
         v.get("_calibration").is_none(),
         "JSON should NOT contain '_calibration' key when --tokens-processed is not provided"

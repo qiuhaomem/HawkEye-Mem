@@ -14,6 +14,23 @@ pub struct AppConfig {
     pub state_machine: Option<StateMachineConfig>,
     #[allow(dead_code)]
     pub multi_agent: Option<MultiAgentConfig>,
+    #[allow(dead_code)]
+    pub remote: Option<RemoteConfig>,
+    #[allow(dead_code)]
+    pub history: Option<HistoryConfig>,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+pub struct RemoteConfig {
+    pub api_key: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+pub struct HistoryConfig {
+    pub retention_days: Option<u64>,
+    pub auto_record: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -45,6 +62,8 @@ pub struct StateMachineConfig {
 pub struct MultiAgentConfig {
     pub enabled: Option<bool>,
     pub extra_process_names: Option<Vec<String>>,
+    /// V0.4: 用户自定义 Agent 名称列表（替代内置 KNOWN_AGENTS）
+    pub names: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -68,8 +87,7 @@ impl AppConfig {
                 if let Ok(env_path) = std::env::var("HAWKEYE_MEM_CONFIG") {
                     PathBuf::from(env_path)
                 } else {
-                    let home = dirs_next::home_dir()
-                        .context("Cannot determine home directory")?;
+                    let home = dirs_next::home_dir().context("Cannot determine home directory")?;
                     home.join(".config/hawk-eye-mem/config.toml")
                 }
             }
@@ -88,8 +106,8 @@ impl AppConfig {
         let content = std::fs::read_to_string(&config_path)
             .with_context(|| format!("Failed to read config file: {}", config_path.display()))?;
 
-        let config: AppConfig = toml::from_str(&content)
-            .with_context(|| "Failed to parse config")?;
+        let config: AppConfig =
+            toml::from_str(&content).with_context(|| "Failed to parse config")?;
 
         Ok(Some(config))
     }
@@ -111,7 +129,10 @@ mod tests {
         assert!(result.is_ok(), "有效TOML应返回Ok");
         let config = result.unwrap();
         assert!(config.is_some(), "应有配置内容");
-        assert_eq!(config.unwrap().model.unwrap().bytes_per_token.unwrap(), 4096);
+        assert_eq!(
+            config.unwrap().model.unwrap().bytes_per_token.unwrap(),
+            4096
+        );
     }
 
     // UT-CF-002: 无效TOML格式
@@ -125,7 +146,11 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         assert!(result.is_err(), "无效TOML应返回Err");
         let err_msg = result.unwrap_err().to_string().to_lowercase();
-        assert!(err_msg.contains("parse"), "错误消息应包含'parse': {}", err_msg);
+        assert!(
+            err_msg.contains("parse"),
+            "错误消息应包含'parse': {}",
+            err_msg
+        );
     }
 
     // UT-CF-003: 文件不存在
@@ -133,7 +158,10 @@ mod tests {
     fn test_ut_cf_003_file_not_found() {
         let result = AppConfig::load(Some("/nonexistent/path/config.toml"));
         assert!(result.is_err(), "显式路径不存在应返回Err");
-        assert!(result.unwrap_err().to_string().contains("Failed to read config file"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Failed to read config file"));
     }
 
     // UT-CF-004: 默认路径无文件静默跳过
@@ -175,9 +203,14 @@ min_samples_critical = 5
 [multi_agent]
 enabled = true
 extra_process_names = ["my-agent", "test-agent"]
+names = ["my-custom-agent", "my-other-agent"]
 
 [gpu]
 rocm_smi_path = "/opt/rocm/bin/rocm-smi"
+
+[history]
+retention_days = 30
+auto_record = true
 "#;
         std::fs::write(&path, toml_content).unwrap();
         let result = AppConfig::load(Some(path.to_str().unwrap()));
@@ -188,7 +221,14 @@ rocm_smi_path = "/opt/rocm/bin/rocm-smi"
         assert!(config.state_machine.is_some(), "state_machine 段应存在");
         assert!(config.multi_agent.is_some(), "multi_agent 段应存在");
         assert!(config.gpu.is_some(), "gpu 段应存在");
-        let ma = config.multi_agent.unwrap();
-        assert_eq!(ma.extra_process_names.unwrap().len(), 2);
+        assert!(config.history.is_some(), "history 段应存在");
+        let h = config.history.as_ref().unwrap();
+        assert_eq!(h.retention_days, Some(30));
+        assert_eq!(h.auto_record, Some(true));
+        let ma = config.multi_agent.as_ref().unwrap();
+        assert_eq!(ma.extra_process_names.as_ref().unwrap().len(), 2);
+        assert!(ma.names.is_some(), "names 字段应存在");
+        assert_eq!(ma.names.as_ref().unwrap().len(), 2);
+        assert_eq!(ma.names.as_ref().unwrap()[0], "my-custom-agent");
     }
 }

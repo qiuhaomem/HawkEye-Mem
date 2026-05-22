@@ -10,9 +10,9 @@
 // rocm-smi 路径为纯 safe Rust 解析。
 // ============================================================================
 
-pub mod nvml;
 pub mod amd;
 pub mod metal;
+pub mod nvml;
 
 use crate::collector::{CollectError, CollectorOutput, GpuMetrics, GpuPressure, ResourceCollector};
 
@@ -68,7 +68,9 @@ impl GpuCollector {
         let mut lines = output.lines();
 
         // 第一行是 CSV header，解析列索引
-        let header = lines.next().ok_or_else(|| "Empty nvidia-smi output".to_string())?;
+        let header = lines
+            .next()
+            .ok_or_else(|| "Empty nvidia-smi output".to_string())?;
         let headers = parse_csv_line(header)?;
 
         // 必需字段索引（降级：仅 name, memory.total, memory.used 为必需）
@@ -137,7 +139,8 @@ impl GpuCollector {
             // 可选字段：温度（°C）—— [N/A] 或空字符串 → None
             let temp_celsius = temp_idx.and_then(|idx| {
                 let v = cols.get(idx)?.trim();
-                if v.is_empty() || v.eq_ignore_ascii_case("[N/A]") || v.eq_ignore_ascii_case("N/A") {
+                if v.is_empty() || v.eq_ignore_ascii_case("[N/A]") || v.eq_ignore_ascii_case("N/A")
+                {
                     return None;
                 }
                 v.parse::<f64>().ok()
@@ -146,7 +149,8 @@ impl GpuCollector {
             // 可选字段：功耗（W）—— [N/A] 或空字符串 → None
             let power_watts = power_idx.and_then(|idx| {
                 let v = cols.get(idx)?.trim();
-                if v.is_empty() || v.eq_ignore_ascii_case("[N/A]") || v.eq_ignore_ascii_case("N/A") {
+                if v.is_empty() || v.eq_ignore_ascii_case("[N/A]") || v.eq_ignore_ascii_case("N/A")
+                {
                     return None;
                 }
                 v.parse::<f64>().ok()
@@ -155,7 +159,8 @@ impl GpuCollector {
             // 可选字段：GPU 利用率（%）—— [N/A] 或空字符串 → None
             let utilization_gpu_percent = util_gpu_idx.and_then(|idx| {
                 let v = cols.get(idx)?.trim();
-                if v.is_empty() || v.eq_ignore_ascii_case("[N/A]") || v.eq_ignore_ascii_case("N/A") {
+                if v.is_empty() || v.eq_ignore_ascii_case("[N/A]") || v.eq_ignore_ascii_case("N/A")
+                {
                     return None;
                 }
                 v.parse::<u32>().ok()
@@ -164,7 +169,8 @@ impl GpuCollector {
             // 可选字段：显存利用率（%）—— [N/A] 或空字符串 → None
             let utilization_memory_percent = util_mem_idx.and_then(|idx| {
                 let v = cols.get(idx)?.trim();
-                if v.is_empty() || v.eq_ignore_ascii_case("[N/A]") || v.eq_ignore_ascii_case("N/A") {
+                if v.is_empty() || v.eq_ignore_ascii_case("[N/A]") || v.eq_ignore_ascii_case("N/A")
+                {
                     return None;
                 }
                 v.parse::<u32>().ok()
@@ -205,12 +211,7 @@ impl GpuCollector {
 
         // rocm-smi --showmeminfo vram --csv 输出所有 GPU 的 VRAM 信息
         let output = std::process::Command::new(binary)
-            .args([
-                "--showmeminfo", "vram",
-                "--showtemp",
-                "--showuse",
-                "--csv",
-            ])
+            .args(["--showmeminfo", "vram", "--showtemp", "--showuse", "--csv"])
             .output()
             .map_err(|e| format!("Failed to execute {}: {}", binary, e))?;
 
@@ -378,7 +379,11 @@ name, memory.total, memory.used, temperature.gpu, power.draw, utilization.gpu, u
 NVIDIA GeForce RTX 3090, 24576, 10240, 65, 250.0, 85, 40
 ";
         let result = GpuCollector::parse_nvidia_smi_output(csv);
-        assert!(result.is_ok(), "should parse single GPU: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "should parse single GPU: {:?}",
+            result.err()
+        );
         let metrics = result.unwrap();
         assert_eq!(metrics.len(), 1);
         assert_eq!(metrics[0].name, "NVIDIA GeForce RTX 3090");
@@ -416,7 +421,11 @@ name, memory.total, memory.used, temperature.gpu, power.draw, utilization.gpu, u
 \"NVIDIA A100, 80GB SXM\", 81920, 40960, 55, 300.0, 90, 60
 ";
         let result = GpuCollector::parse_nvidia_smi_output(csv);
-        assert!(result.is_ok(), "should parse quoted name: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "should parse quoted name: {:?}",
+            result.err()
+        );
         let metrics = result.unwrap();
         assert_eq!(metrics[0].name, "NVIDIA A100, 80GB SXM");
     }

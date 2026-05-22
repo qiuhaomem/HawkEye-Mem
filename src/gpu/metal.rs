@@ -18,11 +18,7 @@ use crate::collector::GpuMetrics;
 #[cfg(all(target_os = "macos", feature = "gpu"))]
 fn sysctl_string(key: &str) -> Option<String> {
     use std::process::Command;
-    let output = Command::new("sysctl")
-        .arg("-n")
-        .arg(key)
-        .output()
-        .ok()?;
+    let output = Command::new("sysctl").arg("-n").arg(key).output().ok()?;
     if !output.status.success() {
         return None;
     }
@@ -56,7 +52,10 @@ fn sysctl_memsize_mb() -> Option<u64> {
 fn collect_metal_api() -> Result<Vec<GpuMetrics>, String> {
     // 尝试通过 dlopen 加载 Metal framework
     // 使用系统 sysctl 作为万能回退
-    Err("Metal API direct bind not available without metal-rs crate, using sysctl fallback".to_string())
+    Err(
+        "Metal API direct bind not available without metal-rs crate, using sysctl fallback"
+            .to_string(),
+    )
 }
 
 // ============================================================================
@@ -102,7 +101,10 @@ pub fn collect_apple_gpu() -> Result<Vec<GpuMetrics>, String> {
     match collect_metal_api() {
         Ok(gpus) => Ok(gpus),
         Err(e) => {
-            eprintln!("Warning: Metal API unavailable ({}), using sysctl fallback", e);
+            eprintln!(
+                "Warning: Metal API unavailable ({}), using sysctl fallback",
+                e
+            );
             Ok(fallback_sysctl())
         }
     }

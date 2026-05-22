@@ -1,7 +1,8 @@
-use super::{CollectorOutput, ResourceCollector, ResourceSnapshot};
 use super::cpu::CpuCollector;
 use super::disk::DiskCollector;
 use super::gpu::GpuCollector;
+use super::{CollectorOutput, ResourceCollector, ResourceSnapshot};
+use crate::container::ContainerDetector;
 use crate::multi_agent::MultiAgentDetector;
 use crate::thermal::ThermalCollector;
 
@@ -13,6 +14,8 @@ pub struct CollectorRegistry {
     model_cache_path: Option<String>,
     /// 额外 Agent 进程名（从配置读取）
     extra_agent_processes: Option<Vec<String>>,
+    /// V0.4: 用户自定义 Agent 名称列表（替代内置 KNOWN_AGENTS）
+    agent_custom_names: Option<Vec<String>>,
 }
 
 impl CollectorRegistry {
@@ -22,6 +25,7 @@ impl CollectorRegistry {
             collectors: Vec::new(),
             model_cache_path: None,
             extra_agent_processes: None,
+            agent_custom_names: None,
         };
         registry.register_defaults();
         registry
@@ -37,6 +41,11 @@ impl CollectorRegistry {
         self.extra_agent_processes = extra;
     }
 
+    /// V0.4: 设置自定义 Agent 名称列表（替代内置 KNOWN_AGENTS）
+    pub fn set_agent_custom_names(&mut self, names: Option<Vec<String>>) {
+        self.agent_custom_names = names;
+    }
+
     /// 注册一个 Collector
     pub fn register(&mut self, collector: Box<dyn ResourceCollector>) {
         self.collectors.push(collector);
@@ -48,7 +57,8 @@ impl CollectorRegistry {
         self.register(Box::new(super::linux::LinuxCollector));
         #[cfg(target_os = "macos")]
         self.register(Box::new(super::macos::MacosCollector));
-        #[cfg(not(any(target_os = "linux", target_os = "macos")))] {
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+        {
             self.register(Box::new(UnsupportedCollector));
         }
 
@@ -93,7 +103,8 @@ impl CollectorRegistry {
         }
 
         // 动态创建 MultiAgentDetector（依赖配置）
-        let agent_detector = MultiAgentDetector::new(self.extra_agent_processes.clone());
+        let mut agent_detector = MultiAgentDetector::new(self.extra_agent_processes.clone());
+        agent_detector.set_custom_names(self.agent_custom_names.clone());
         match agent_detector.collect() {
             Ok(CollectorOutput::Agent(a)) => agents = Some(a),
             Err(e) => eprintln!("Warning: agent detector failed: {}", e),
@@ -102,6 +113,36 @@ impl CollectorRegistry {
 
         let duration_ms = start.elapsed().as_secs_f64() * 1000.0;
 
+        // === 容器检测集成（W3-W4 核心） ===
+        let container_runtime = ContainerDetector::detect_runtime();
+
+        // 如果在容器内，用 cgroup 限制覆盖物理资源
+        // 内存：如果 cgroup 设置了限制，用它覆盖 total_mb
+        if let Some(ref mut mem) = memory {
+            if let Some(cgroup_limit_mb) = ContainerDetector::get_memory_limit() {
+                // 仅在 cgroup 限制小于物理内存时覆盖（CR-03 已处理无限值）
+                if cgroup_limit_mb < mem.total_mb {
+                    mem.total_mb = cgroup_limit_mb;
+                    // 重新计算 used_percent（保持比例）
+                    mem.used_percent = if cgroup_limit_mb > 0 {
+                        (mem.used_mb as f64 / cgroup_limit_mb as f64 * 100.0 * 10.0).round() / 10.0
+                    } else {
+                        0.0
+                    };
+                }
+            }
+        }
+
+        // CPU：如果 cgroup 设置了限制，用它覆盖 cores
+        if let Some(ref mut c) = cpu {
+            if let Some(cgroup_cores) = ContainerDetector::get_cpu_limit() {
+                let cgroup_cores_u32 = cgroup_cores.ceil() as u32;
+                if cgroup_cores_u32 < c.cores {
+                    c.cores = cgroup_cores_u32;
+                }
+            }
+        }
+
         ResourceSnapshot {
             memory,
             disk,
@@ -109,6 +150,7 @@ impl CollectorRegistry {
             gpu,
             thermal,
             agents,
+            container_runtime,
             timestamp,
             collection_duration_ms: (duration_ms * 10.0).round() / 10.0,
         }

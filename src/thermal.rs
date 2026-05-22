@@ -107,30 +107,58 @@ mod tests {
     fn test_ut_th_003_no_thermal_path() {
         let collector = ThermalCollector;
         let result = collector.collect();
-        assert!(result.is_ok(), "温度采集不因不可用而失败: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "温度采集不因不可用而失败: {:?}",
+            result.err()
+        );
     }
 
     // UT-TH-004: 温度压力判定 — Normal
     #[test]
     fn test_ut_th_004_pressure_normal() {
-        assert_eq!(ThermalCollector::calc_pressure(Some(65.0)), CpuThermalPressure::Normal);
-        assert_eq!(ThermalCollector::calc_pressure(Some(79.9)), CpuThermalPressure::Normal);
-        assert_eq!(ThermalCollector::calc_pressure(None), CpuThermalPressure::Normal);
+        assert_eq!(
+            ThermalCollector::calc_pressure(Some(65.0)),
+            CpuThermalPressure::Normal
+        );
+        assert_eq!(
+            ThermalCollector::calc_pressure(Some(79.9)),
+            CpuThermalPressure::Normal
+        );
+        assert_eq!(
+            ThermalCollector::calc_pressure(None),
+            CpuThermalPressure::Normal
+        );
     }
 
     // UT-TH-005: 温度压力判定 — Warning
     #[test]
     fn test_ut_th_005_pressure_warning() {
-        assert_eq!(ThermalCollector::calc_pressure(Some(80.0)), CpuThermalPressure::Warning);
-        assert_eq!(ThermalCollector::calc_pressure(Some(88.0)), CpuThermalPressure::Warning);
-        assert_eq!(ThermalCollector::calc_pressure(Some(94.9)), CpuThermalPressure::Warning);
+        assert_eq!(
+            ThermalCollector::calc_pressure(Some(80.0)),
+            CpuThermalPressure::Warning
+        );
+        assert_eq!(
+            ThermalCollector::calc_pressure(Some(88.0)),
+            CpuThermalPressure::Warning
+        );
+        assert_eq!(
+            ThermalCollector::calc_pressure(Some(94.9)),
+            CpuThermalPressure::Warning
+        );
     }
 
     // UT-TH-006: 温度压力判定 — Critical
     #[test]
     fn test_ut_th_006_pressure_critical() {
-        assert_eq!(ThermalCollector::calc_pressure(Some(95.0)), CpuThermalPressure::Critical);
-        assert_eq!(ThermalCollector::calc_pressure(Some(100.0)), CpuThermalPressure::Critical);
+        assert_eq!(
+            ThermalCollector::calc_pressure(Some(95.0)),
+            CpuThermalPressure::Critical
+        );
+        assert_eq!(
+            ThermalCollector::calc_pressure(Some(100.0)),
+            CpuThermalPressure::Critical
+        );
     }
 
     // UT-TH-007: 温度 note 包含说明文案（CR-05）
@@ -153,7 +181,11 @@ mod tests {
     #[test]
     fn test_ut_th_011_over_100_pressure() {
         let pressure = ThermalCollector::calc_pressure(Some(110.0));
-        assert_eq!(pressure, CpuThermalPressure::Critical, "110°C 应为 Critical");
+        assert_eq!(
+            pressure,
+            CpuThermalPressure::Critical,
+            "110°C 应为 Critical"
+        );
     }
 
     // UT-TH-012: 温度值为 0 不报错

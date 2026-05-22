@@ -118,11 +118,9 @@ impl DiskCollector {
 
 impl ResourceCollector for DiskCollector {
     fn collect(&self) -> Result<CollectorOutput, CollectError> {
-        let target_path = self
-            .resolve_path()
-            .ok_or_else(|| CollectError::ResourceNotAvailable(
-                "No model cache directory found".into(),
-            ))?;
+        let target_path = self.resolve_path().ok_or_else(|| {
+            CollectError::ResourceNotAvailable("No model cache directory found".into())
+        })?;
 
         let (total_mb, available_mb) = Self::get_disk_info(&target_path)?;
 

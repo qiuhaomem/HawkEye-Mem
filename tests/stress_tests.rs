@@ -12,8 +12,8 @@
 //   ST-LM-*    --list-models 验证
 //   ST-STR-*   手动压力测试 (#[ignore])
 
-use std::process::Command;
 use std::path::PathBuf;
+use std::process::Command;
 use std::time::{Duration, Instant};
 
 // ============================================================================
@@ -52,7 +52,12 @@ fn check_number_field(v: &serde_json::Value, path: &[&str]) {
             panic!("Missing field: {}", key);
         });
     }
-    assert!(current.is_number(), "Field {:?} should be a number, got {:?}", path, current);
+    assert!(
+        current.is_number(),
+        "Field {:?} should be a number, got {:?}",
+        path,
+        current
+    );
     assert!(!current.is_null(), "Field {:?} should not be null", path);
 }
 
@@ -64,9 +69,18 @@ fn check_string_field(v: &serde_json::Value, path: &[&str], check_non_empty: boo
             panic!("Missing field: {}", key);
         });
     }
-    assert!(current.is_string(), "Field {:?} should be a string, got {:?}", path, current);
+    assert!(
+        current.is_string(),
+        "Field {:?} should be a string, got {:?}",
+        path,
+        current
+    );
     if check_non_empty {
-        assert!(!current.as_str().unwrap().is_empty(), "Field {:?} should not be empty", path);
+        assert!(
+            !current.as_str().unwrap().is_empty(),
+            "Field {:?} should not be empty",
+            path
+        );
     }
 }
 
@@ -79,25 +93,34 @@ fn check_string_field(v: &serde_json::Value, path: &[&str], check_non_empty: boo
 fn test_st_cli_001_compatible_args_all() {
     let (stdout, _stderr, code) = run_bin(&["--json", "--interval", "1", "--count", "1"]);
     assert_eq!(code, 0, "--json --interval 1 --count 1 should succeed");
-    let v: serde_json::Value = serde_json::from_str(stdout.trim())
-        .expect("stdout should be valid JSON");
+    let v: serde_json::Value =
+        serde_json::from_str(stdout.trim()).expect("stdout should be valid JSON");
     assert!(v.get("system").is_some(), "JSON should contain 'system'");
-    assert!(v.get("agent_guidance").is_some(), "JSON should contain 'agent_guidance'");
+    assert!(
+        v.get("agent_guidance").is_some(),
+        "JSON should contain 'agent_guidance'"
+    );
 }
 
 /// ST-CLI-002: --context 超大值（在 u32 范围内，验证能解析）
 #[test]
 fn test_st_cli_002_context_huge() {
     let (stdout, _stderr, code) = run_bin(&[
-        "--can-run", "--model", "deepseek-v2-lite",
-        "--context", "999999999",
+        "--can-run",
+        "--model",
+        "deepseek-v2-lite",
+        "--context",
+        "999999999",
     ]);
     // --can-run always returns 0, the context value is passed to assess engine
     assert_eq!(code, 0, "--can-run with large context should not crash");
-    let v: serde_json::Value = serde_json::from_str(stdout.trim())
-        .expect("stdout should be valid JSON");
+    let v: serde_json::Value =
+        serde_json::from_str(stdout.trim()).expect("stdout should be valid JSON");
     // Should have constraints (since 999999999 context definitely won't fit)
-    assert!(v.get("constraints").is_some(), "assessment should have constraints field");
+    assert!(
+        v.get("constraints").is_some(),
+        "assessment should have constraints field"
+    );
     assert!(v.get("verdict").is_some(), "assessment should have verdict");
 }
 
@@ -106,8 +129,11 @@ fn test_st_cli_002_context_huge() {
 fn test_st_cli_003_model_size_overflow() {
     let (_stdout, stderr, code) = run_bin(&["--model-size", "99999999999999999999"]);
     assert_ne!(code, 0, "overflow model-size should be rejected");
-    assert!(stderr.contains("error") || stderr.contains("invalid"),
-        "stderr should indicate error, got: {}", stderr);
+    assert!(
+        stderr.contains("error") || stderr.contains("invalid"),
+        "stderr should indicate error, got: {}",
+        stderr
+    );
 }
 
 /// ST-CLI-004: --model 空字符串
@@ -117,8 +143,8 @@ fn test_st_cli_004_model_empty() {
     let (stdout, _stderr, code) = run_bin(&["--can-run", "--model", ""]);
     // --can-run always returns 0, assess proceeds with model_name: Some("")
     assert_eq!(code, 0, "--can-run with empty model should not crash");
-    let v: serde_json::Value = serde_json::from_str(stdout.trim())
-        .expect("stdout should be valid JSON");
+    let v: serde_json::Value =
+        serde_json::from_str(stdout.trim()).expect("stdout should be valid JSON");
     // Should have request with empty model_name
     assert!(v.get("request").is_some(), "assessment should have request");
 }
@@ -128,8 +154,8 @@ fn test_st_cli_004_model_empty() {
 fn test_st_cli_005_model_garbage() {
     let (stdout, _stderr, code) = run_bin(&["--can-run", "--model", "!@#$%^&*()"]);
     assert_eq!(code, 0, "--can-run with garbage model should not crash");
-    let v: serde_json::Value = serde_json::from_str(stdout.trim())
-        .expect("stdout should be valid JSON");
+    let v: serde_json::Value =
+        serde_json::from_str(stdout.trim()).expect("stdout should be valid JSON");
     // No constraints expected (model not found, skip memory estimation)
     assert!(v.get("verdict").is_some(), "assessment should have verdict");
 }
@@ -139,30 +165,42 @@ fn test_st_cli_005_model_garbage() {
 fn test_st_cli_006_model_unicode() {
     let (stdout, _stderr, code) = run_bin(&["--can-run", "--model", "🦙llama3-8b"]);
     assert_eq!(code, 0, "--can-run with unicode model should not crash");
-    let v: serde_json::Value = serde_json::from_str(stdout.trim())
-        .expect("stdout should be valid JSON");
+    let v: serde_json::Value =
+        serde_json::from_str(stdout.trim()).expect("stdout should be valid JSON");
     assert!(v.get("verdict").is_some(), "assessment should have verdict");
 }
 
 /// ST-CLI-007: --compare 带 4 个模型（应报错）
 #[test]
 fn test_st_cli_007_compare_4_models() {
-    let (_stdout, stderr, code) = run_bin(&[
-        "--can-run", "--compare", "a,b,c,d",
-    ]);
+    let (_stdout, stderr, code) = run_bin(&["--can-run", "--compare", "a,b,c,d"]);
     assert_ne!(code, 0, "--compare with 4 models should fail");
-    assert!(stderr.contains("1-3"), "stderr should mention 1-3 model limit, got: {}", stderr);
+    assert!(
+        stderr.contains("1-3"),
+        "stderr should mention 1-3 model limit, got: {}",
+        stderr
+    );
 }
 
 /// ST-CLI-008: --model 和 --model-size 同时给（应报错）
 #[test]
 fn test_st_cli_008_model_and_model_size_conflict() {
     let (_stdout, stderr, code) = run_bin(&[
-        "--can-run", "--model", "llama3-8b", "--model-size", "7000000000",
+        "--can-run",
+        "--model",
+        "llama3-8b",
+        "--model-size",
+        "7000000000",
     ]);
-    assert_ne!(code, 0, "--model and --model-size conflict should be rejected");
-    assert!(stderr.contains("cannot be used with") || stderr.contains("error"),
-        "stderr should indicate conflict, got: {}", stderr);
+    assert_ne!(
+        code, 0,
+        "--model and --model-size conflict should be rejected"
+    );
+    assert!(
+        stderr.contains("cannot be used with") || stderr.contains("error"),
+        "stderr should indicate conflict, got: {}",
+        stderr
+    );
 }
 
 // ============================================================================
@@ -175,30 +213,50 @@ fn test_st_json_001_top_level_fields() {
     let (stdout, _, code) = run_bin(&["--json"]);
     assert_eq!(code, 0);
 
-    let v: serde_json::Value = serde_json::from_str(&stdout)
-        .expect("stdout should be valid JSON");
+    let v: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be valid JSON");
 
     // 必须包含的顶层字段
-    let timestamp = v.get("timestamp")
+    let timestamp = v
+        .get("timestamp")
         .expect("must have 'timestamp'")
         .as_str()
         .expect("timestamp must be a string");
-    assert!(is_rfc3339(timestamp), "timestamp must be RFC3339, got: {}", timestamp);
+    assert!(
+        is_rfc3339(timestamp),
+        "timestamp must be RFC3339, got: {}",
+        timestamp
+    );
 
-    let duration = v.get("collection_duration_ms")
+    let duration = v
+        .get("collection_duration_ms")
         .expect("must have 'collection_duration_ms'")
         .as_f64()
         .expect("collection_duration_ms must be a number");
-    assert!(duration > 0.0, "collection_duration_ms must be positive, got: {}", duration);
+    assert!(
+        duration > 0.0,
+        "collection_duration_ms must be positive, got: {}",
+        duration
+    );
 
     assert!(v.get("system").is_some(), "must have 'system'");
-    assert!(v.get("agent_guidance").is_some(), "must have 'agent_guidance'");
+    assert!(
+        v.get("agent_guidance").is_some(),
+        "must have 'agent_guidance'"
+    );
 
     // 顶层不应有多余字段（允许的就这几个）
-    let allowed_keys = ["timestamp", "collection_duration_ms", "system", "agent_guidance"];
+    let allowed_keys = [
+        "timestamp",
+        "collection_duration_ms",
+        "system",
+        "agent_guidance",
+    ];
     for key in v.as_object().unwrap().keys() {
-        assert!(allowed_keys.contains(&key.as_str()),
-            "unexpected top-level key: {}", key);
+        assert!(
+            allowed_keys.contains(&key.as_str()),
+            "unexpected top-level key: {}",
+            key
+        );
     }
 }
 
@@ -223,24 +281,37 @@ fn test_st_json_002_system_fields() {
 
     // used_percent 在 0-100 范围内
     let used_percent = system["used_percent"].as_f64().unwrap();
-    assert!(used_percent >= 0.0 && used_percent <= 100.0,
-        "used_percent must be 0-100, got: {}", used_percent);
+    assert!(
+        used_percent >= 0.0 && used_percent <= 100.0,
+        "used_percent must be 0-100, got: {}",
+        used_percent
+    );
 
     // available 不应超过 total
     let available = system["available_mb"].as_u64().unwrap();
-    assert!(available <= total_mb,
-        "available_mb ({}) must not exceed total_mb ({})", available, total_mb);
+    assert!(
+        available <= total_mb,
+        "available_mb ({}) must not exceed total_mb ({})",
+        available,
+        total_mb
+    );
 
     // 可选字段：如果存在则验证结构
     if let Some(disk) = system.get("disk") {
         assert!(disk.is_object(), "disk should be an object");
         assert!(disk.get("path").is_some(), "disk should have path");
-        assert!(disk.get("available_mb").is_some(), "disk should have available_mb");
+        assert!(
+            disk.get("available_mb").is_some(),
+            "disk should have available_mb"
+        );
     }
     if let Some(cpu) = system.get("cpu") {
         assert!(cpu.is_object(), "cpu should be an object");
         assert!(cpu.get("cores").is_some(), "cpu should have cores");
-        assert!(cpu.get("load_avg_1m").is_some(), "cpu should have load_avg_1m");
+        assert!(
+            cpu.get("load_avg_1m").is_some(),
+            "cpu should have load_avg_1m"
+        );
     }
 }
 
@@ -265,32 +336,51 @@ fn test_st_json_003_agent_guidance_fields() {
 
     // pressure 必须是合法值
     let pressure = guidance["pressure"].as_str().unwrap();
-    assert!(["low", "medium", "high", "critical"].contains(&pressure),
-        "pressure must be one of low/medium/high/critical, got: {}", pressure);
+    assert!(
+        ["low", "medium", "high", "critical"].contains(&pressure),
+        "pressure must be one of low/medium/high/critical, got: {}",
+        pressure
+    );
 
     // action 必须是合法值
     let action = guidance["action"].as_str().unwrap();
-    assert!(["ok", "monitor", "reduce_context", "abort_safely"].contains(&action),
-        "action must be ok/monitor/reduce_context/abort_safely, got: {}", action);
+    assert!(
+        ["ok", "monitor", "reduce_context", "abort_safely"].contains(&action),
+        "action must be ok/monitor/reduce_context/abort_safely, got: {}",
+        action
+    );
 
     // confidence 必须是合法值
     let confidence = guidance["confidence"].as_str().unwrap();
-    assert!(["conservative", "calibrated"].contains(&confidence),
-        "confidence must be conservative/calibrated, got: {}", confidence);
+    assert!(
+        ["conservative", "calibrated"].contains(&confidence),
+        "confidence must be conservative/calibrated, got: {}",
+        confidence
+    );
 
     // estimated_safe_context_window is u64, always >= 0
-    let _safe_ctx = guidance["estimated_safe_context_window"].as_u64()
+    let _safe_ctx = guidance["estimated_safe_context_window"]
+        .as_u64()
         .expect("estimated_safe_context_window should be a valid u64");
 
     // _note 应有正确内容
     let note = guidance["_note"].as_str().unwrap();
-    assert!(note.contains("recommendations"), "_note should mention recommendations, got: {}", note);
+    assert!(
+        note.contains("recommendations"),
+        "_note should mention recommendations, got: {}",
+        note
+    );
 
     // suggestion 可选：如果是 "conservative" 则应有，否则可为 None
     if confidence == "conservative" {
-        assert!(guidance.get("suggestion").is_some(),
-            "suggestion should exist when confidence=conservative");
-        assert!(guidance["suggestion"].is_string(), "suggestion should be a string");
+        assert!(
+            guidance.get("suggestion").is_some(),
+            "suggestion should exist when confidence=conservative"
+        );
+        assert!(
+            guidance["suggestion"].is_string(),
+            "suggestion should be a string"
+        );
     }
 }
 
@@ -307,7 +397,10 @@ fn test_st_json_004_type_strictness() {
         match val {
             serde_json::Value::Null => {
                 // 只有在跳过列表中的路径才允许 null
-                if !skip_keys.iter().any(|k| path.ends_with(k) || path.contains(k)) {
+                if !skip_keys
+                    .iter()
+                    .any(|k| path.ends_with(k) || path.contains(k))
+                {
                     panic!("Unexpected null at {}", path);
                 }
             }
@@ -359,9 +452,11 @@ fn test_st_json_005_continuous_json_consistency() {
             keys.sort();
             keys
         };
-        assert_eq!(cur_keys, first_keys,
+        assert_eq!(
+            cur_keys, first_keys,
             "line {} has different keys than line 0: {:?} vs {:?}",
-            i, cur_keys, first_keys);
+            i, cur_keys, first_keys
+        );
     }
 }
 
@@ -376,25 +471,34 @@ fn test_st_as_001_70b_infeasible() {
     assert_eq!(code, 0);
 
     let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let verdict = v.get("verdict")
+    let verdict = v
+        .get("verdict")
         .expect("assessment should have verdict")
         .as_str()
         .unwrap_or("");
 
     // 70B 模型直接运行不可行，但有降级方案（降低量化/换小模型），
     // 因此 verdict 可能是 infeasible 或 feasible_with_caveats
-    assert_ne!(verdict, "feasible",
-        "70B model should NOT be feasible, got verdict: {}", verdict);
+    assert_ne!(
+        verdict, "feasible",
+        "70B model should NOT be feasible, got verdict: {}",
+        verdict
+    );
 
     // 应有内存约束
-    let constraints = v.get("constraints")
+    let constraints = v
+        .get("constraints")
         .expect("assessment should have constraints")
         .as_array()
         .unwrap();
-    assert!(!constraints.is_empty(), "70B model should have memory constraints");
+    assert!(
+        !constraints.is_empty(),
+        "70B model should have memory constraints"
+    );
 
     // 应有降级方案
-    let options = v.get("safe_options")
+    let options = v
+        .get("safe_options")
         .expect("assessment should have safe_options")
         .as_array()
         .unwrap();
@@ -419,8 +523,11 @@ fn test_st_as_002_nonexistent_model() {
 #[test]
 fn test_st_as_003_huge_context() {
     let (stdout, _, code) = run_bin(&[
-        "--can-run", "--model", "deepseek-v2-lite",
-        "--context", "32768",
+        "--can-run",
+        "--model",
+        "deepseek-v2-lite",
+        "--context",
+        "32768",
     ]);
     assert_eq!(code, 0);
 
@@ -429,20 +536,29 @@ fn test_st_as_003_huge_context() {
 
     // verdict 可能为 feasible（大内存机器）或 feasible_with_caveats
     // 只验证不 panic 且输出结构正确
-    assert!(["feasible", "feasible_with_caveats", "infeasible"].contains(&verdict),
-        "verdict should be a valid value, got: {}", verdict);
+    assert!(
+        ["feasible", "feasible_with_caveats", "infeasible"].contains(&verdict),
+        "verdict should be a valid value, got: {}",
+        verdict
+    );
 
     // 验证 request 包含指定 context
     let request = v.get("request").unwrap();
-    assert_eq!(request["context_window"], 32768,
-        "request should contain context_window=32768");
+    assert_eq!(
+        request["context_window"], 32768,
+        "request should contain context_window=32768"
+    );
 }
 
 /// ST-AS-004: 手动指定超大模型参数应产生内存约束（硬件无关）
 #[test]
 fn test_st_as_004_huge_model_size() {
     let (stdout, _, code) = run_bin(&[
-        "--can-run", "--model-size", "200000000000", "--context", "4096",
+        "--can-run",
+        "--model-size",
+        "200000000000",
+        "--context",
+        "4096",
     ]);
     assert_eq!(code, 0);
 
@@ -450,16 +566,21 @@ fn test_st_as_004_huge_model_size() {
     let verdict = v.get("verdict").unwrap().as_str().unwrap_or("");
 
     // 200B 模型在任何机器上都不 feasible
-    assert_ne!(verdict, "feasible",
-        "200B model should NOT be feasible on any machine");
+    assert_ne!(
+        verdict, "feasible",
+        "200B model should NOT be feasible on any machine"
+    );
 
     // 应有约束
-    let constraints = v.get("constraints")
+    let constraints = v
+        .get("constraints")
         .expect("assessment should have constraints")
         .as_array()
         .unwrap();
-    assert!(!constraints.is_empty(),
-        "200B model should have constraints");
+    assert!(
+        !constraints.is_empty(),
+        "200B model should have constraints"
+    );
 
     // 应有降级方案
     assert!(v.get("safe_options").is_some());
@@ -470,33 +591,52 @@ fn test_st_as_004_huge_model_size() {
 #[test]
 fn test_st_as_005_compare_three_models() {
     let (stdout, _, code) = run_bin(&[
-        "--can-run", "--json", "--compare", "deepseek-v2-lite,llama3-8b,phi-3-mini",
+        "--can-run",
+        "--json",
+        "--compare",
+        "deepseek-v2-lite,llama3-8b,phi-3-mini",
     ]);
     assert_eq!(code, 0);
 
     let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
 
     // 比较输出应有 comparison 数组
-    let comparison = v.get("comparison")
+    let comparison = v
+        .get("comparison")
         .expect("should have 'comparison' array")
         .as_array()
         .unwrap();
-    assert_eq!(comparison.len(), 3,
-        "should compare exactly 3 models, got {}", comparison.len());
+    assert_eq!(
+        comparison.len(),
+        3,
+        "should compare exactly 3 models, got {}",
+        comparison.len()
+    );
 
     // 每个模型应有 verdict
     for (i, model_result) in comparison.iter().enumerate() {
-        assert!(model_result.get("verdict").is_some(),
-            "model {} should have verdict", i);
-        assert!(model_result.get("constraints").is_some(),
-            "model {} should have constraints", i);
-        assert!(model_result.get("safe_options").is_some(),
-            "model {} should have safe_options", i);
+        assert!(
+            model_result.get("verdict").is_some(),
+            "model {} should have verdict",
+            i
+        );
+        assert!(
+            model_result.get("constraints").is_some(),
+            "model {} should have constraints",
+            i
+        );
+        assert!(
+            model_result.get("safe_options").is_some(),
+            "model {} should have safe_options",
+            i
+        );
     }
 
     // 应有推荐索引
-    assert!(v.get("recommended_index").is_some(),
-        "should have recommended_index");
+    assert!(
+        v.get("recommended_index").is_some(),
+        "should have recommended_index"
+    );
 }
 
 // ============================================================================
@@ -515,8 +655,11 @@ fn test_st_int_001_count_lines() {
     assert_eq!(lines.len(), 5, "should output exactly 5 JSON lines");
 
     // 总时间应 >= 4 秒（5 次采集间隔 4 次等待）
-    assert!(elapsed >= Duration::from_secs(4),
-        "should take at least 4s for 5 samples at 1s interval, took {:?}", elapsed);
+    assert!(
+        elapsed >= Duration::from_secs(4),
+        "should take at least 4s for 5 samples at 1s interval, took {:?}",
+        elapsed
+    );
 
     // 每行都是合法 JSON
     for (i, line) in lines.iter().enumerate() {
@@ -549,19 +692,34 @@ fn test_st_int_002_structure_consistent() {
         let sys = v["system"].as_object().unwrap();
         let mut keys: Vec<String> = sys.keys().cloned().collect();
         keys.sort();
-        assert_eq!(keys, first_system_keys,
+        assert_eq!(
+            keys, first_system_keys,
             "line {} system keys differ: {:?} vs {:?}",
-            i, keys, first_system_keys);
+            i, keys, first_system_keys
+        );
 
         // agent_guidance 的键也应一致
-        let guidance_keys: Vec<String> = v["agent_guidance"].as_object().unwrap()
-            .keys().cloned().collect();
+        let guidance_keys: Vec<String> = v["agent_guidance"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .cloned()
+            .collect();
         let ref_guidance_keys: Vec<String> = {
             let ref_v: serde_json::Value = serde_json::from_str(lines[0]).unwrap();
-            ref_v["agent_guidance"].as_object().unwrap().keys().cloned().collect()
+            ref_v["agent_guidance"]
+                .as_object()
+                .unwrap()
+                .keys()
+                .cloned()
+                .collect()
         };
-        assert_eq!(guidance_keys.len(), ref_guidance_keys.len(),
-            "line {} agent_guidance key count differs", i);
+        assert_eq!(
+            guidance_keys.len(),
+            ref_guidance_keys.len(),
+            "line {} agent_guidance key count differs",
+            i
+        );
     }
 }
 
@@ -583,12 +741,21 @@ fn test_st_int_003_duration_stability() {
     // 最大与均值比不应超过 10 倍（防止异常大值）
     let mean = durations.iter().sum::<f64>() / durations.len() as f64;
     let max = durations.iter().cloned().fold(0.0_f64, f64::max);
-    assert!(max < mean * 10.0,
-        "max duration ({:.1}ms) is too far from mean ({:.1}ms)", max, mean);
+    assert!(
+        max < mean * 10.0,
+        "max duration ({:.1}ms) is too far from mean ({:.1}ms)",
+        max,
+        mean
+    );
 
     // 每次采集应在合理时间内（< 100ms 是合理的）
     for (i, d) in durations.iter().enumerate() {
-        assert!(*d < 1000.0, "collection {} took {:.1}ms, expected < 1000ms", i, d);
+        assert!(
+            *d < 1000.0,
+            "collection {} took {:.1}ms, expected < 1000ms",
+            i,
+            d
+        );
     }
 }
 
@@ -609,9 +776,13 @@ fn test_st_int_004_timestamp_increasing() {
 
         if let Some(ref prev) = prev_ts {
             let prev_parsed = chrono::DateTime::parse_from_rfc3339(prev).unwrap();
-            assert!(parsed > prev_parsed,
+            assert!(
+                parsed > prev_parsed,
                 "line {} timestamp ({}) should be after previous ({})",
-                i, ts, prev);
+                i,
+                ts,
+                prev
+            );
         }
         prev_ts = Some(ts);
     }
@@ -627,7 +798,8 @@ fn test_st_met_001_total_mb() {
     let (stdout, _, code) = run_bin(&["--metric", "total_mb"]);
     assert_eq!(code, 0);
     let trimmed = stdout.trim();
-    let val: u64 = trimmed.parse()
+    let val: u64 = trimmed
+        .parse()
         .unwrap_or_else(|e| panic!("total_mb should be a valid u64, got '{}': {}", trimmed, e));
     assert!(val > 0, "total_mb should be > 0, got: {}", val);
     // 合理性检查：通常在 512-1048576 MB 之间
@@ -640,7 +812,8 @@ fn test_st_met_002_used_mb() {
     let (stdout, _, code) = run_bin(&["--metric", "used_mb"]);
     assert_eq!(code, 0);
     let trimmed = stdout.trim();
-    let val: u64 = trimmed.parse()
+    let val: u64 = trimmed
+        .parse()
         .unwrap_or_else(|e| panic!("used_mb should be a valid u64, got '{}': {}", trimmed, e));
     assert!(val > 0, "used_mb should be > 0, got: {}", val);
 }
@@ -651,18 +824,28 @@ fn test_st_met_003_used_percent() {
     let (stdout, _, code) = run_bin(&["--metric", "used_percent"]);
     assert_eq!(code, 0);
     let trimmed = stdout.trim();
-    let val: f64 = trimmed.parse()
-        .unwrap_or_else(|e| panic!("used_percent should be a valid f64, got '{}': {}", trimmed, e));
-    assert!(val >= 0.0 && val <= 100.0,
-        "used_percent should be 0-100, got: {}", val);
+    let val: f64 = trimmed.parse().unwrap_or_else(|e| {
+        panic!(
+            "used_percent should be a valid f64, got '{}': {}",
+            trimmed, e
+        )
+    });
+    assert!(
+        val >= 0.0 && val <= 100.0,
+        "used_percent should be 0-100, got: {}",
+        val
+    );
     // used_percent 输出格式应为 X.X（保留一位小数）
     let decimal_part = if trimmed.contains('.') {
         trimmed.split('.').nth(1).unwrap_or("")
     } else {
         ""
     };
-    assert!(decimal_part.len() <= 1 || (decimal_part.len() == 2 && decimal_part == "0"),
-        "used_percent should have at most 1 decimal place, got: {}", trimmed);
+    assert!(
+        decimal_part.len() <= 1 || (decimal_part.len() == 2 && decimal_part == "0"),
+        "used_percent should have at most 1 decimal place, got: {}",
+        trimmed
+    );
 }
 
 /// ST-MET-004: --metric 不存在的指标（应报错）
@@ -670,8 +853,11 @@ fn test_st_met_003_used_percent() {
 fn test_st_met_004_unknown_metric() {
     let (_stdout, stderr, code) = run_bin(&["--metric", "nonexistent_metric"]);
     assert_ne!(code, 0, "unknown metric should fail");
-    assert!(stderr.contains("Unknown metric"),
-        "stderr should mention 'Unknown metric', got: {}", stderr);
+    assert!(
+        stderr.contains("Unknown metric"),
+        "stderr should mention 'Unknown metric', got: {}",
+        stderr
+    );
 }
 
 // ============================================================================
@@ -697,8 +883,12 @@ fn test_st_lm_001_all_models_listed() {
     ];
 
     for model in &expected_models {
-        assert!(stdout.contains(model),
-            "--list-models should contain '{}', got:\n{}", model, stdout);
+        assert!(
+            stdout.contains(model),
+            "--list-models should contain '{}', got:\n{}",
+            model,
+            stdout
+        );
     }
 }
 
@@ -721,13 +911,18 @@ fn test_st_lm_002_source_and_update() {
     ];
 
     for source in &expected_sources {
-        assert!(stdout.contains(source),
-            "--list-models output should contain source '{}'", source);
+        assert!(
+            stdout.contains(source),
+            "--list-models output should contain source '{}'",
+            source
+        );
     }
 
     // 验证更新日期格式（YYYY-MM）
-    assert!(stdout.contains("2026-05"),
-        "--list-models should contain update date in YYYY-MM format");
+    assert!(
+        stdout.contains("2026-05"),
+        "--list-models should contain update date in YYYY-MM format"
+    );
 }
 
 // ============================================================================

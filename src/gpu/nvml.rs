@@ -13,8 +13,8 @@
 
 #![cfg(feature = "gpu")]
 
-use nvml_wrapper::{Device, Nvml};
 use crate::collector::{GpuMetrics, GpuPressure};
+use nvml_wrapper::{Device, Nvml};
 
 /// NVML 全量采集入口
 ///
@@ -69,10 +69,7 @@ fn collect_single(device: &Device, index: u32) -> GpuMetrics {
         .ok();
 
     // 功耗（W）—— 独立降级，mW → W
-    let power_watts = device
-        .power_usage()
-        .map(|p| p as f64 / 1000.0)
-        .ok();
+    let power_watts = device.power_usage().map(|p| p as f64 / 1000.0).ok();
 
     // GPU 利用率（%）—— 独立降级
     let (util_gpu, util_mem) = device

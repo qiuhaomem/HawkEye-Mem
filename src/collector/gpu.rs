@@ -15,8 +15,8 @@ pub use crate::gpu::GpuCollector;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gpu::parse_csv_line;
     use crate::collector::{CollectError, CollectorOutput, GpuPressure, ResourceCollector};
+    use crate::gpu::parse_csv_line;
 
     // UT-GPU-001: 解析 nvidia-smi 单 GPU 输出
     #[test]
@@ -26,7 +26,11 @@ name, memory.total, memory.used
 NVIDIA GeForce RTX 3090, 24576, 10240
 ";
         let result = GpuCollector::parse_nvidia_smi_output(csv);
-        assert!(result.is_ok(), "should parse single GPU: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "should parse single GPU: {:?}",
+            result.err()
+        );
         let metrics = result.unwrap();
         assert_eq!(metrics.len(), 1);
         assert_eq!(metrics[0].name, "NVIDIA GeForce RTX 3090");
@@ -57,7 +61,11 @@ name, memory.total, memory.used
 \"NVIDIA A100, 80GB SXM\", 81920, 40960
 ";
         let result = GpuCollector::parse_nvidia_smi_output(csv);
-        assert!(result.is_ok(), "should parse quoted name: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "should parse quoted name: {:?}",
+            result.err()
+        );
         let metrics = result.unwrap();
         assert_eq!(metrics[0].name, "NVIDIA A100, 80GB SXM");
     }

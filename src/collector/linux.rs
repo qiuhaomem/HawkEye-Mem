@@ -26,7 +26,11 @@ impl ResourceCollector for LinuxCollector {
         }
 
         let total_mb = total_kb / 1024;
-        let available_mb = if available_kb > 0 { available_kb / 1024 } else { total_mb };
+        let available_mb = if available_kb > 0 {
+            available_kb / 1024
+        } else {
+            total_mb
+        };
         let used_mb = total_mb.saturating_sub(available_mb);
         let used_percent = if total_mb > 0 {
             (used_mb as f64 / total_mb as f64 * 100.0 * 10.0).round() / 10.0

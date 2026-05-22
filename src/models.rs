@@ -43,7 +43,9 @@ impl ModelLibrary {
     /// 按名称查找模型（不区分大小写）
     pub fn find(name: &str) -> Option<&'static ModelEntry> {
         let name_lower = name.to_lowercase();
-        load_models().iter().find(|m| m.name.to_lowercase() == name_lower)
+        load_models()
+            .iter()
+            .find(|m| m.name.to_lowercase() == name_lower)
     }
 
     /// 列出所有模型
@@ -58,7 +60,9 @@ impl ModelLibrary {
         let name_lower = name.to_lowercase();
 
         // 找到当前模型
-        let current = models.iter().find(|m| m.name.to_lowercase() == name_lower)?;
+        let current = models
+            .iter()
+            .find(|m| m.name.to_lowercase() == name_lower)?;
         let current_size = current.size_b;
 
         // 找 size_b 更小的模型中最大的
@@ -138,14 +142,20 @@ mod tests {
         // llama3-8b(8B) 比它小的最大模型应该是 qwen2-7b or mistral-7b(7B)
         let size = smaller.unwrap().size_b;
         assert!(size < 8000000000, "smaller model should have fewer params");
-        assert!(size >= 7000000000, "should be the largest among smaller ones (>=7B)");
+        assert!(
+            size >= 7000000000,
+            "should be the largest among smaller ones (>=7B)"
+        );
     }
 
     // UT-ML-005: 最小模型 find_smaller 返回 None
     #[test]
     fn test_ut_ml_005_smallest_no_smaller() {
         let smallest = ModelLibrary::find_smaller("phi-3-mini");
-        assert!(smallest.is_none(), "phi-3-mini (3.8B) should have no smaller model");
+        assert!(
+            smallest.is_none(),
+            "phi-3-mini (3.8B) should have no smaller model"
+        );
     }
 
     // UT-ML-006: 不区分大小写查找

@@ -6,9 +6,9 @@ pub mod algorithm;
 pub mod csv_store;
 #[derive(Debug, Clone)]
 pub struct CalibrationPoint {
-    pub timestamp: u64,           // Unix timestamp（秒）
-    pub bytes_per_token: u64,     // 单次推理的KV cache字节数
-    pub tokens_processed: u64,    // 本次推理处理的token数
+    pub timestamp: u64,        // Unix timestamp（秒）
+    pub bytes_per_token: u64,  // 单次推理的KV cache字节数
+    pub tokens_processed: u64, // 本次推理处理的token数
 }
 
 // === CalibrationStore trait ===
@@ -28,7 +28,7 @@ pub trait CalibrationStore: Send + Sync {
 /// 将模型名哈希为16位hex字符串
 /// 拼接本机salt（/etc/machine-id前8位）以防止CSV被跨机关联分析
 pub fn hash_model_name(name: &str) -> Result<String> {
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
 
     // 尝试读取本机salt
     let salt = std::fs::read_to_string("/etc/machine-id")

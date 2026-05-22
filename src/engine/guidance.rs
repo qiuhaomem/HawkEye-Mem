@@ -148,14 +148,20 @@ mod tests {
     #[test]
     fn test_ut_gg_005_suggestion_conservative() {
         let g = GuidanceGenerator::generate(12000, 30.0, 1_700_000, "conservative");
-        assert!(g.suggestion.is_some(), "Conservative should have suggestion");
+        assert!(
+            g.suggestion.is_some(),
+            "Conservative should have suggestion"
+        );
     }
 
     // UT-GG-006: suggestion在calibrated时为None
     #[test]
     fn test_ut_gg_006_suggestion_calibrated_none() {
         let g = GuidanceGenerator::generate(12000, 30.0, 1_700_000, "calibrated");
-        assert!(g.suggestion.is_none(), "Calibrated should have no suggestion");
+        assert!(
+            g.suggestion.is_none(),
+            "Calibrated should have no suggestion"
+        );
     }
 
     // UT-GG-007: reason字符串长度限制 ≤200
@@ -228,7 +234,10 @@ mod tests {
         assert!(json.get("action").is_some(), "JSON must contain 'action'");
         assert_eq!(json["action"], "ok");
         assert!(json.get("reason").is_some(), "JSON must contain 'reason'");
-        assert!(json.get("pressure").is_some(), "JSON must contain 'pressure'");
+        assert!(
+            json.get("pressure").is_some(),
+            "JSON must contain 'pressure'"
+        );
     }
 
     // Guidance JSON: suggestion is null when calibrated
@@ -236,8 +245,11 @@ mod tests {
     fn test_guidance_serialization_suggestion_null() {
         let g = GuidanceGenerator::generate(12000, 30.0, 1_700_000, "calibrated");
         let json = serde_json::to_value(&g).unwrap();
-        assert!(json.get("suggestion").is_none(),
-            "calibrated guidance should omit suggestion field, got: {:?}", json);
+        assert!(
+            json.get("suggestion").is_none(),
+            "calibrated guidance should omit suggestion field, got: {:?}",
+            json
+        );
     }
 
     // Guidance JSON: suggestion present when conservative
@@ -245,8 +257,10 @@ mod tests {
     fn test_guidance_serialization_suggestion_present() {
         let g = GuidanceGenerator::generate(12000, 30.0, 1_700_000, "conservative");
         let json = serde_json::to_value(&g).unwrap();
-        assert!(json.get("suggestion").and_then(|x| x.as_str()).is_some(),
-            "conservative guidance should have non-null suggestion");
+        assert!(
+            json.get("suggestion").and_then(|x| x.as_str()).is_some(),
+            "conservative guidance should have non-null suggestion"
+        );
     }
 
     // ===== UT-PS: 压力判定阈值测试 =====
@@ -307,7 +321,8 @@ mod tests {
         let (pressure, _, _) = GuidanceGenerator::classify(4500, 50.0);
         assert!(
             pressure == "low" || pressure == "medium",
-            "Normal macOS load should not be high/critical, got: {}", pressure
+            "Normal macOS load should not be high/critical, got: {}",
+            pressure
         );
     }
 }

@@ -4,10 +4,10 @@
 // T11: 加权平均修正算法 + CorrectedParams + CalibrationMeta
 // T12: confidence 自动降级（连续3次偏差>30%）
 
+use crate::calibration::{hash_model_name, CalibrationPoint, CalibrationStore};
+use crate::collector::ResourceSnapshot;
 use anyhow::Result;
 use serde::Serialize;
-use crate::calibration::{CalibrationPoint, CalibrationStore, hash_model_name};
-use crate::collector::ResourceSnapshot;
 
 /// 校准引擎 - 管理校准数据、confidence 升降级
 pub struct CalibrationEngine<S: CalibrationStore> {
@@ -30,7 +30,7 @@ impl<S: CalibrationStore> CalibrationEngine<S> {
 
     /// 记录一次推理校准数据，同时执行 T12 降级检测
     /// 首次升级到 Calibrated 时输出庆祝提示到 stderr（CR-07）
-    /// 
+    ///
     /// T12 降级逻辑：
     ///   连续 3 次实测偏差 > 30% → 清空该模型数据，重新学习
     ///   （在 record_inference_from_snapshots 中计算偏差后调用此方法时触发）
@@ -106,7 +106,11 @@ impl<S: CalibrationStore> CalibrationEngine<S> {
             eprintln!(
                 "[hawk-eye-mem] Warning: deviation {:.1}% exceeds 30% threshold ({} {}/3)",
                 deviation * 100.0,
-                if *count >= 3 { "DEGRADED" } else { "monitoring" },
+                if *count >= 3 {
+                    "DEGRADED"
+                } else {
+                    "monitoring"
+                },
                 if *count >= 3 { 3 } else { *count },
             );
 
@@ -266,13 +270,19 @@ impl CalibrationAlgorithm {
             .collect();
 
         let total_weight: f64 = weights.iter().sum();
-        let avg: f64 = recent.iter().zip(&weights)
+        let avg: f64 = recent
+            .iter()
+            .zip(&weights)
             .map(|(p, w)| p.bytes_per_token as f64 * w)
-            .sum::<f64>() / total_weight;
+            .sum::<f64>()
+            / total_weight;
 
-        let variance: f64 = recent.iter().zip(&weights)
+        let variance: f64 = recent
+            .iter()
+            .zip(&weights)
             .map(|(p, w)| w * (p.bytes_per_token as f64 - avg).powi(2))
-            .sum::<f64>() / total_weight;
+            .sum::<f64>()
+            / total_weight;
         let std_dev = variance.sqrt();
         let cv = if avg > 0.0 { std_dev / avg } else { 999.0 }; // 变异系数
 
@@ -292,15 +302,25 @@ impl CalibrationAlgorithm {
         // T11: 趋势判定（取最近 4 条：前2 vs 后2 均值比较）
         let trend = if recent.len() >= 4 {
             let half = recent.len() / 2;
-            let older_half: f64 = recent[half..].iter()
-                .map(|p| p.bytes_per_token as f64).sum::<f64>() / half as f64;
-            let newer_half: f64 = recent[..half].iter()
-                .map(|p| p.bytes_per_token as f64).sum::<f64>() / half as f64;
+            let older_half: f64 = recent[half..]
+                .iter()
+                .map(|p| p.bytes_per_token as f64)
+                .sum::<f64>()
+                / half as f64;
+            let newer_half: f64 = recent[..half]
+                .iter()
+                .map(|p| p.bytes_per_token as f64)
+                .sum::<f64>()
+                / half as f64;
             let diff = (newer_half - older_half).abs();
             let mean = (older_half + newer_half) / 2.0;
-            if diff < mean * 0.05 { "stable".to_string() }
-            else if newer_half < older_half { "improving".to_string() }
-            else { "degrading".to_string() }
+            if diff < mean * 0.05 {
+                "stable".to_string()
+            } else if newer_half < older_half {
+                "improving".to_string()
+            } else {
+                "degrading".to_string()
+            }
         } else {
             "unknown".to_string()
         };
@@ -352,14 +372,9 @@ pub enum Confidence {
 #[derive(Debug, Clone, PartialEq)]
 pub enum CalibrationStatus {
     /// 学习中（样本 < 10）
-    Learning {
-        sample_count: usize,
-        needed: usize,
-    },
+    Learning { sample_count: usize, needed: usize },
     /// 已校准（样本 ≥ 10）
-    Calibrated {
-        sample_count: usize,
-    },
+    Calibrated { sample_count: usize },
 }
 
 /// 校准阶段（CR-08 叙事性五阶段）
@@ -389,11 +404,7 @@ impl std::fmt::Display for CalibrationStage {
                 write!(f, "快好了 ███████░░░ {} 次 — 还差最后几次", count)
             }
             CalibrationStage::Calibrated { count } => {
-                write!(
-                    f,
-                    "已校准 ✅ {} 次 — 你的 Agent 现在心里有数了",
-                    count
-                )
+                write!(f, "已校准 ✅ {} 次 — 你的 Agent 现在心里有数了", count)
             }
         }
     }
@@ -542,6 +553,7 @@ mod tests {
             gpu: None,
             thermal: None,
             agents: None,
+            container_runtime: None,
             timestamp: String::new(),
             collection_duration_ms: 0.0,
         }
@@ -553,8 +565,8 @@ mod tests {
         let store = CsvStore::new(tmp.path().to_path_buf(), 100);
         let mut engine = CalibrationEngine::new(store);
 
-        let before = make_mock_snapshot(8000);  // 8000MB available
-        let after = make_mock_snapshot(5000);   // 5000MB available → delta=3000MB
+        let before = make_mock_snapshot(8000); // 8000MB available
+        let after = make_mock_snapshot(5000); // 5000MB available → delta=3000MB
 
         let result = engine
             .record_inference_from_snapshots(&before, &after, 4096, "test-model")
@@ -589,7 +601,7 @@ mod tests {
         let mut engine = CalibrationEngine::new(store);
 
         let before = make_mock_snapshot(8000);
-        let after = make_mock_snapshot(7995);  // delta=5MB < 10MB
+        let after = make_mock_snapshot(7995); // delta=5MB < 10MB
 
         let result = engine
             .record_inference_from_snapshots(&before, &after, 4096, "test-model")
@@ -619,7 +631,7 @@ mod tests {
         let mut engine = CalibrationEngine::new(store);
 
         let before = make_mock_snapshot(5000);
-        let after = make_mock_snapshot(8000);  // memory increased
+        let after = make_mock_snapshot(8000); // memory increased
 
         let result = engine
             .record_inference_from_snapshots(&before, &after, 4096, "test-model")
@@ -642,19 +654,33 @@ mod tests {
 
         let result = CalibrationAlgorithm::compute(&points).unwrap();
         assert_eq!(result.avg_bytes_per_token, 2048);
-        assert!((result.safety_margin - 10.0).abs() < 0.001, "margin should be 10%");
+        assert!(
+            (result.safety_margin - 10.0).abs() < 0.001,
+            "margin should be 10%"
+        );
         assert_eq!(result.confidence, Confidence::Calibrated);
         assert_eq!(result.calibration.samples, 10);
         assert_eq!(result.calibration.trend, "stable");
-        assert!(result.calibration.std_dev < 1.0, "std_dev should be near 0 for uniform data");
+        assert!(
+            result.calibration.std_dev < 1.0,
+            "std_dev should be near 0 for uniform data"
+        );
     }
 
     #[test]
     fn test_t11_weighted_average_fewer_than_3() {
         // 样本 < 3 → None
         let points = vec![
-            CalibrationPoint { timestamp: 1, bytes_per_token: 2048, tokens_processed: 100 },
-            CalibrationPoint { timestamp: 2, bytes_per_token: 2100, tokens_processed: 100 },
+            CalibrationPoint {
+                timestamp: 1,
+                bytes_per_token: 2048,
+                tokens_processed: 100,
+            },
+            CalibrationPoint {
+                timestamp: 2,
+                bytes_per_token: 2100,
+                tokens_processed: 100,
+            },
         ];
         let result = CalibrationAlgorithm::compute(&points);
         assert!(result.is_none(), "fewer than 3 samples should return None");
@@ -664,16 +690,56 @@ mod tests {
     fn test_t11_weighted_average_high_cv() {
         // CV > 20% → Conservative
         let points: Vec<CalibrationPoint> = vec![
-            CalibrationPoint { timestamp: 1, bytes_per_token: 4000, tokens_processed: 100 },
-            CalibrationPoint { timestamp: 2, bytes_per_token: 1000, tokens_processed: 100 },
-            CalibrationPoint { timestamp: 3, bytes_per_token: 3000, tokens_processed: 100 },
-            CalibrationPoint { timestamp: 4, bytes_per_token: 500, tokens_processed: 100 },
-            CalibrationPoint { timestamp: 5, bytes_per_token: 3500, tokens_processed: 100 },
-            CalibrationPoint { timestamp: 6, bytes_per_token: 2000, tokens_processed: 100 },
-            CalibrationPoint { timestamp: 7, bytes_per_token: 1500, tokens_processed: 100 },
-            CalibrationPoint { timestamp: 8, bytes_per_token: 2500, tokens_processed: 100 },
-            CalibrationPoint { timestamp: 9, bytes_per_token: 800, tokens_processed: 100 },
-            CalibrationPoint { timestamp: 10, bytes_per_token: 3000, tokens_processed: 100 },
+            CalibrationPoint {
+                timestamp: 1,
+                bytes_per_token: 4000,
+                tokens_processed: 100,
+            },
+            CalibrationPoint {
+                timestamp: 2,
+                bytes_per_token: 1000,
+                tokens_processed: 100,
+            },
+            CalibrationPoint {
+                timestamp: 3,
+                bytes_per_token: 3000,
+                tokens_processed: 100,
+            },
+            CalibrationPoint {
+                timestamp: 4,
+                bytes_per_token: 500,
+                tokens_processed: 100,
+            },
+            CalibrationPoint {
+                timestamp: 5,
+                bytes_per_token: 3500,
+                tokens_processed: 100,
+            },
+            CalibrationPoint {
+                timestamp: 6,
+                bytes_per_token: 2000,
+                tokens_processed: 100,
+            },
+            CalibrationPoint {
+                timestamp: 7,
+                bytes_per_token: 1500,
+                tokens_processed: 100,
+            },
+            CalibrationPoint {
+                timestamp: 8,
+                bytes_per_token: 2500,
+                tokens_processed: 100,
+            },
+            CalibrationPoint {
+                timestamp: 9,
+                bytes_per_token: 800,
+                tokens_processed: 100,
+            },
+            CalibrationPoint {
+                timestamp: 10,
+                bytes_per_token: 3000,
+                tokens_processed: 100,
+            },
         ];
         let result = CalibrationAlgorithm::compute(&points).unwrap();
         assert_eq!(result.confidence, Confidence::Conservative);
@@ -720,8 +786,14 @@ mod tests {
             .collect();
         let result = CalibrationAlgorithm::compute(&points).unwrap();
         // 最新值 3000（权重 1.0），7 条 2000（权重 0.9-0.3），加权平均应偏向 3000
-        assert!(result.avg_bytes_per_token > 2000, "weighted avg should favor recent higher value");
-        assert!(result.avg_bytes_per_token < 3000, "but not equal to 3000 due to older values");
+        assert!(
+            result.avg_bytes_per_token > 2000,
+            "weighted avg should favor recent higher value"
+        );
+        assert!(
+            result.avg_bytes_per_token < 3000,
+            "but not equal to 3000 due to older values"
+        );
     }
 
     // ========== T12: 降级逻辑测试 ==========
@@ -747,7 +819,10 @@ mod tests {
         }
 
         // 验证现在是 Calibrated
-        let params = engine.get_corrected_params("degrade-test").unwrap().unwrap();
+        let params = engine
+            .get_corrected_params("degrade-test")
+            .unwrap()
+            .unwrap();
         assert_eq!(params.confidence, Confidence::Calibrated);
 
         // 连续 3 次偏差 > 30%
@@ -767,7 +842,10 @@ mod tests {
 
         // 第 3 次后数据应被清空
         let params_after = engine.get_corrected_params("degrade-test").unwrap();
-        assert!(params_after.is_none(), "data should be cleared after 3 degradations");
+        assert!(
+            params_after.is_none(),
+            "data should be cleared after 3 degradations"
+        );
     }
 
     #[test]
@@ -803,7 +881,10 @@ mod tests {
             .unwrap();
 
         let params = engine.get_corrected_params("normal-test").unwrap();
-        assert!(params.is_some(), "data should not be cleared for normal deviation");
+        assert!(
+            params.is_some(),
+            "data should not be cleared for normal deviation"
+        );
     }
 
     #[test]

@@ -67,12 +67,10 @@ pub fn parse_rocm_smi_output(output: &str) -> Result<Vec<GpuMetrics>, String> {
         .iter()
         .position(|h| h.trim().to_lowercase().contains("temp"));
 
-    let gpu_use_idx = headers
-        .iter()
-        .position(|h| {
-            let h = h.trim().to_lowercase();
-            h.contains("gpu use") || h.contains("utilization")
-        });
+    let gpu_use_idx = headers.iter().position(|h| {
+        let h = h.trim().to_lowercase();
+        h.contains("gpu use") || h.contains("utilization")
+    });
 
     let max_idx = [name_idx, total_idx, used_idx]
         .iter()
@@ -119,8 +117,7 @@ pub fn parse_rocm_smi_output(output: &str) -> Result<Vec<GpuMetrics>, String> {
 
         // 压力判定
         let pressure = if total_mb > 0 {
-            let available_pct =
-                (total_mb.saturating_sub(used_mb)) as f64 / total_mb as f64 * 100.0;
+            let available_pct = (total_mb.saturating_sub(used_mb)) as f64 / total_mb as f64 * 100.0;
             if available_pct > 50.0 {
                 GpuPressure::Low
             } else if available_pct >= 20.0 {
@@ -186,14 +183,19 @@ device,VRAM Total (B),VRAM Used (B),Temperature (Sensor edge) (C),GPU use (%)
 card0,17163091968,8581545984,45.0,85
 ";
         let result = parse_rocm_smi_output(csv);
-        assert!(result.is_ok(), "should parse single AMD GPU: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "should parse single AMD GPU: {:?}",
+            result.err()
+        );
         let metrics = result.unwrap();
         assert_eq!(metrics.len(), 1);
         assert_eq!(metrics[0].name, "card0");
         // 17163091968 B / (1024*1024) ≈ 16384 MB
         assert!(
             (metrics[0].vram_total_mb as i64 - 16368).abs() <= 20,
-            "total_mb={} expected ~16368", metrics[0].vram_total_mb
+            "total_mb={} expected ~16368",
+            metrics[0].vram_total_mb
         );
         assert_eq!(metrics[0].temp_celsius, Some(45.0));
         assert_eq!(metrics[0].utilization_gpu_percent, Some(85));
@@ -218,7 +220,8 @@ card1,8589934592,2147483648,38.0,30
         // card1: 8GB ≈ 8192MB
         assert!(
             (metrics[1].vram_total_mb as i64 - 8192).abs() <= 10,
-            "card1 total_mb={} expected ~8192", metrics[1].vram_total_mb
+            "card1 total_mb={} expected ~8192",
+            metrics[1].vram_total_mb
         );
     }
 

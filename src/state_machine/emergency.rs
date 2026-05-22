@@ -18,8 +18,7 @@ pub fn is_emergency(
     emergency_available_mb: u64,
     emergency_used_percent: f64,
 ) -> bool {
-    metrics.available_mb < emergency_available_mb
-        || metrics.used_percent > emergency_used_percent
+    metrics.available_mb < emergency_available_mb || metrics.used_percent > emergency_used_percent
 }
 
 /// 紧急跃迁时使用的压力等级（固定为 Critical）
@@ -67,7 +66,10 @@ mod tests {
     #[test]
     fn test_emergency_boundary() {
         let m = make_metrics(512, 98.0);
-        assert!(!is_emergency(&m, 512, 98.0), "512MB 不小于 512，98% 不大于 98");
+        assert!(
+            !is_emergency(&m, 512, 98.0),
+            "512MB 不小于 512，98% 不大于 98"
+        );
     }
 
     // UT-EM-005: 配置可调阈值

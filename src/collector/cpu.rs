@@ -40,16 +40,20 @@ fn get_loadavg() -> Result<(f64, f64, f64), CollectError> {
 
     let parts: Vec<&str> = content.split_whitespace().collect();
     if parts.len() < 3 {
-        return Err(CollectError::ReadFailed(
-            format!("Unexpected /proc/loadavg format: {}", content.trim())
-        ));
+        return Err(CollectError::ReadFailed(format!(
+            "Unexpected /proc/loadavg format: {}",
+            content.trim()
+        )));
     }
 
-    let load_1m = parts[0].parse::<f64>()
+    let load_1m = parts[0]
+        .parse::<f64>()
         .map_err(|e| CollectError::ReadFailed(format!("Failed to parse load_1m: {}", e)))?;
-    let load_5m = parts[1].parse::<f64>()
+    let load_5m = parts[1]
+        .parse::<f64>()
         .map_err(|e| CollectError::ReadFailed(format!("Failed to parse load_5m: {}", e)))?;
-    let load_15m = parts[2].parse::<f64>()
+    let load_15m = parts[2]
+        .parse::<f64>()
         .map_err(|e| CollectError::ReadFailed(format!("Failed to parse load_15m: {}", e)))?;
 
     Ok((load_1m, load_5m, load_15m))
@@ -71,20 +75,28 @@ fn get_loadavg() -> Result<(f64, f64, f64), CollectError> {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     // sysctl vm.loadavg 输出格式: "{ 1.23 0.98 0.76 }"
-    let trimmed = stdout.trim().trim_start_matches('{').trim_end_matches('}').trim();
+    let trimmed = stdout
+        .trim()
+        .trim_start_matches('{')
+        .trim_end_matches('}')
+        .trim();
     let parts: Vec<&str> = trimmed.split_whitespace().collect();
 
     if parts.len() < 3 {
-        return Err(CollectError::ReadFailed(
-            format!("Unexpected sysctl output: {}", stdout.trim())
-        ));
+        return Err(CollectError::ReadFailed(format!(
+            "Unexpected sysctl output: {}",
+            stdout.trim()
+        )));
     }
 
-    let load_1m = parts[0].parse::<f64>()
+    let load_1m = parts[0]
+        .parse::<f64>()
         .map_err(|e| CollectError::ReadFailed(format!("Failed to parse load_1m: {}", e)))?;
-    let load_5m = parts[1].parse::<f64>()
+    let load_5m = parts[1]
+        .parse::<f64>()
         .map_err(|e| CollectError::ReadFailed(format!("Failed to parse load_5m: {}", e)))?;
-    let load_15m = parts[2].parse::<f64>()
+    let load_15m = parts[2]
+        .parse::<f64>()
         .map_err(|e| CollectError::ReadFailed(format!("Failed to parse load_15m: {}", e)))?;
 
     Ok((load_1m, load_5m, load_15m))

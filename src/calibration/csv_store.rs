@@ -4,13 +4,13 @@
 // 并发保护：flock独占锁（锁失败放弃写入不阻塞）
 // 数据上限：max_samples条，超出删除最旧的half条
 
-use std::path::PathBuf;
-use std::fs::{OpenOptions, File};
-use std::io::{Write, BufRead, BufReader};
 use anyhow::{Context, Result};
 use fs2::FileExt;
+use std::fs::{File, OpenOptions};
+use std::io::{BufRead, BufReader, Write};
+use std::path::PathBuf;
 
-use super::{CalibrationStore, CalibrationPoint, hash_model_name};
+use super::{hash_model_name, CalibrationPoint, CalibrationStore};
 
 pub struct CsvStore {
     base_path: PathBuf,
@@ -20,7 +20,10 @@ pub struct CsvStore {
 impl CsvStore {
     /// base_path: 校准数据目录，如 ~/.config/hawk-eye-mem/calibration/
     pub fn new(base_path: PathBuf, max_samples: usize) -> Self {
-        Self { base_path, max_samples }
+        Self {
+            base_path,
+            max_samples,
+        }
     }
 
     /// 获取模型对应的CSV文件路径
@@ -96,7 +99,11 @@ impl CsvStore {
             .open(path)?;
 
         for p in points {
-            writeln!(&file, "{},{},{}", p.timestamp, p.bytes_per_token, p.tokens_processed)?;
+            writeln!(
+                &file,
+                "{},{},{}",
+                p.timestamp, p.bytes_per_token, p.tokens_processed
+            )?;
         }
         Ok(())
     }
@@ -120,9 +127,12 @@ impl CalibrationStore for CsvStore {
             return Ok(());
         }
 
-        writeln!(&file, "{},{},{}",
-            point.timestamp, point.bytes_per_token, point.tokens_processed)
-            .context("Failed to write calibration data")?;
+        writeln!(
+            &file,
+            "{},{},{}",
+            point.timestamp, point.bytes_per_token, point.tokens_processed
+        )
+        .context("Failed to write calibration data")?;
 
         // 解锁
         let _ = file.unlock();
@@ -144,8 +154,7 @@ impl CalibrationStore for CsvStore {
     fn clear_model(&self, model_hash: &str) -> Result<()> {
         let path = self.csv_path(model_hash);
         if path.exists() {
-            std::fs::remove_file(&path)
-                .context("Failed to remove calibration CSV")?;
+            std::fs::remove_file(&path).context("Failed to remove calibration CSV")?;
         }
         Ok(())
     }
@@ -193,14 +202,26 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let store = CsvStore::new(tmp.path().to_path_buf(), 100);
 
-        store.append(
-            CalibrationPoint { timestamp: 1, bytes_per_token: 2048, tokens_processed: 100 },
-            "m1",
-        ).unwrap();
-        store.append(
-            CalibrationPoint { timestamp: 2, bytes_per_token: 2048, tokens_processed: 200 },
-            "m2",
-        ).unwrap();
+        store
+            .append(
+                CalibrationPoint {
+                    timestamp: 1,
+                    bytes_per_token: 2048,
+                    tokens_processed: 100,
+                },
+                "m1",
+            )
+            .unwrap();
+        store
+            .append(
+                CalibrationPoint {
+                    timestamp: 2,
+                    bytes_per_token: 2048,
+                    tokens_processed: 200,
+                },
+                "m2",
+            )
+            .unwrap();
 
         let hash = hash_model_name("m1").unwrap();
         store.clear_model(&hash).unwrap();
@@ -215,14 +236,16 @@ mod tests {
         let store = CsvStore::new(tmp.path().to_path_buf(), 10);
 
         for i in 0..20 {
-            store.append(
-                CalibrationPoint {
-                    timestamp: i,
-                    bytes_per_token: 2048,
-                    tokens_processed: 100 + i,
-                },
-                "trim-test",
-            ).unwrap();
+            store
+                .append(
+                    CalibrationPoint {
+                        timestamp: i,
+                        bytes_per_token: 2048,
+                        tokens_processed: 100 + i,
+                    },
+                    "trim-test",
+                )
+                .unwrap();
         }
 
         let hash = hash_model_name("trim-test").unwrap();
