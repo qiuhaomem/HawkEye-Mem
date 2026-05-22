@@ -223,3 +223,15 @@ jobs:
           name: hawk-eye-mem-macos-x86_64
           path: ./target/x86_64-apple-darwin/release/hawk-eye-mem
           compression-level: 0
+
+  # === 触发 CircleCI 流水线（macOS 原生构建）===
+  trigger-circleci:
+    runs-on: ubuntu-latest
+    needs: [test-linux, build-musl]
+    steps:
+      - name: Trigger CircleCI Pipeline
+        uses: CircleCI-Public/trigger-circleci-pipeline-action@v1.2.0
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CIRCLECI_TOKEN: ${{ secrets.CIRCLECI_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
