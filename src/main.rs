@@ -38,7 +38,7 @@ margin = 30.0
 #[derive(Parser)]
 #[command(
     name = "hawk-eye-mem",
-    version = "0.3.0",
+    version = "0.4.0",
     about = "AI-Native memory monitoring"
 )]
 struct Cli {
@@ -546,7 +546,7 @@ fn main() {
             }
         }
 
-        if (is_continuous || infinite) && !cli.metric.is_some() {
+        if (is_continuous || infinite) && cli.metric.is_none() {
             let app_config = load_config(&cli);
             let result = calc_estimate(metrics, &app_config);
             let output = build_json_output(
@@ -885,7 +885,7 @@ fn print_disclaimer() {
 }
 
 fn print_quick_guide() {
-    eprintln!("");
+    eprintln!();
     eprintln!("  Quick Start:");
     eprintln!("    hawk-eye-mem --json             # Full JSON output with metrics + guidance");
     eprintln!("    hawk-eye-mem --metric available_mb  # Single value output for scripts");
@@ -893,7 +893,7 @@ fn print_quick_guide() {
     eprintln!("    hawk-eye-mem --config <path>    # Load custom model config");
     eprintln!("    hawk-eye-mem --list-models      # List all supported models");
     eprintln!("    hawk-eye-mem --can-run --model llama3-8b  # Check deployment feasibility");
-    eprintln!("");
+    eprintln!();
     eprintln!("  Configure model parameters (optional):");
     eprintln!("    hawk-eye-mem --init-config      # Generate default config file");
     eprintln!("================================================================================");

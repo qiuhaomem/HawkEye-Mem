@@ -148,7 +148,7 @@ pub fn parse_rocm_smi_output(output: &str) -> Result<Vec<GpuMetrics>, String> {
         });
 
         // 温度节流警告（AMD GPU 通常在 95°C+ 开始节流）
-        let throttle_warning = temp_celsius.map_or(false, |t| t > 90.0);
+        let throttle_warning = temp_celsius.is_some_and(|t| t > 90.0);
 
         metrics.push(GpuMetrics {
             name: gpu_name,

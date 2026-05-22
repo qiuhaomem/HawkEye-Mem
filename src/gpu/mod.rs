@@ -177,7 +177,7 @@ impl GpuCollector {
             });
 
             // 温度节流警告
-            let throttle_warning = temp_celsius.map_or(false, |t| t > 90.0);
+            let throttle_warning = temp_celsius.is_some_and(|t| t > 90.0);
 
             metrics.push(GpuMetrics {
                 name: gpu_name,

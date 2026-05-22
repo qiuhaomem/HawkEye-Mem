@@ -81,11 +81,7 @@ mod tests {
         assert_eq!(result.confidence, Confidence::Conservative);
         // 公式: 16384*1024^2/2048*0.7 = 5,872,025,600/2048*0.7
         let expected = ((16384u128 * 1024 * 1024) as f64 * 0.7 / 2048.0) as u64;
-        let diff = if result.estimated_tokens > expected {
-            result.estimated_tokens - expected
-        } else {
-            expected - result.estimated_tokens
-        };
+        let diff = result.estimated_tokens.abs_diff(expected);
         assert!(
             diff <= 1,
             "公式偏差过大: got {}, expected {}",
@@ -141,11 +137,7 @@ mod tests {
     fn test_ut_ee_005_boundary_values() {
         let r4gb = EstimationEngine::estimate(4096, &None);
         let expected_4gb = ((4096u128 * 1024 * 1024) as f64 * 0.7 / 2048.0) as u64;
-        let diff_4gb = if r4gb.estimated_tokens > expected_4gb {
-            r4gb.estimated_tokens - expected_4gb
-        } else {
-            expected_4gb - r4gb.estimated_tokens
-        };
+        let diff_4gb = r4gb.estimated_tokens.abs_diff(expected_4gb);
         assert!(
             diff_4gb <= 1,
             "4GB估算偏差: got {}, expected {}",
@@ -156,11 +148,7 @@ mod tests {
 
         let r8gb = EstimationEngine::estimate(8192, &None);
         let expected_8gb = ((8192u128 * 1024 * 1024) as f64 * 0.7 / 2048.0) as u64;
-        let diff_8gb = if r8gb.estimated_tokens > expected_8gb {
-            r8gb.estimated_tokens - expected_8gb
-        } else {
-            expected_8gb - r8gb.estimated_tokens
-        };
+        let diff_8gb = r8gb.estimated_tokens.abs_diff(expected_8gb);
         assert!(
             diff_8gb <= 1,
             "8GB估算偏差: got {}, expected {}",

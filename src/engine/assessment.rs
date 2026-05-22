@@ -8,6 +8,7 @@ use crate::models::{self, ModelLibrary};
 // ============================================================================
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Default)]
 pub struct DeploymentRequest {
     /// 模型名称（在模型库中查找）
     pub model_name: Option<String>,
@@ -19,16 +20,6 @@ pub struct DeploymentRequest {
     pub context_window: Option<u32>,
 }
 
-impl Default for DeploymentRequest {
-    fn default() -> Self {
-        Self {
-            model_name: None,
-            model_size_b: None,
-            quantization: None,
-            context_window: None,
-        }
-    }
-}
 
 // ============================================================================
 // 评估结果
@@ -355,8 +346,8 @@ fn estimate_savings_percent(current: &str, lower: &str) -> u32 {
     if current_bpw <= 0.0 {
         return 0;
     }
-    let savings = ((current_bpw - lower_bpw) / current_bpw * 100.0).round() as u32;
-    savings
+    
+    ((current_bpw - lower_bpw) / current_bpw * 100.0).round() as u32
 }
 
 // ============================================================================

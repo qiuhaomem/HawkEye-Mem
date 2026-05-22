@@ -292,8 +292,8 @@ fn check_auth(headers: &HashMap<String, String>, expected_key: &str) -> bool {
     };
 
     // 提取 Bearer token
-    let token = if auth_value.starts_with("Bearer ") {
-        &auth_value[7..]
+    let token = if let Some(token) = auth_value.strip_prefix("Bearer ") {
+        token
     } else {
         return false;
     };

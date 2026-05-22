@@ -282,7 +282,7 @@ fn test_st_json_002_system_fields() {
     // used_percent 在 0-100 范围内
     let used_percent = system["used_percent"].as_f64().unwrap();
     assert!(
-        used_percent >= 0.0 && used_percent <= 100.0,
+        (0.0..=100.0).contains(&used_percent),
         "used_percent must be 0-100, got: {}",
         used_percent
     );
@@ -395,15 +395,14 @@ fn test_st_json_004_type_strictness() {
     // 递归检查所有值：不应有 null（除非是 Option 字段）
     fn check_no_null(val: &serde_json::Value, path: &str, skip_keys: &[&str]) {
         match val {
-            serde_json::Value::Null => {
+            serde_json::Value::Null
                 // 只有在跳过列表中的路径才允许 null
                 if !skip_keys
                     .iter()
                     .any(|k| path.ends_with(k) || path.contains(k))
-                {
+                => {
                     panic!("Unexpected null at {}", path);
                 }
-            }
             serde_json::Value::Object(map) => {
                 for (k, v) in map {
                     let child = format!("{}.{}", path, k);
@@ -831,7 +830,7 @@ fn test_st_met_003_used_percent() {
         )
     });
     assert!(
-        val >= 0.0 && val <= 100.0,
+        (0.0..=100.0).contains(&val),
         "used_percent should be 0-100, got: {}",
         val
     );

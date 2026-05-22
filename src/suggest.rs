@@ -105,7 +105,7 @@ pub fn suggest_concurrency(
 
     let usable_memory = available_memory_mb.saturating_sub(safety_reserve);
     let mem_limit = if task_mem > 0 {
-        (usable_memory / task_mem).max(1)
+        usable_memory.checked_div(task_mem).unwrap_or(0).max(1)
     } else {
         1
     } as u32;
@@ -121,7 +121,7 @@ pub fn suggest_concurrency(
     // === 综合计算 ===
     let raw_concurrency = std::cmp::min(cpu_limit, mem_limit);
     let adjusted = (raw_concurrency as f64 * pressure_multiplier).round() as u32;
-    let recommended = adjusted.max(1).min(32); // 最少1，最多32
+    let recommended = adjusted.clamp(1, 32); // 最少1，最多32
 
     // 安全并发数：在recommended基础上再保守一点
     let max_concurrency = recommended;
@@ -166,7 +166,7 @@ pub fn suggest_concurrency(
             total_memory_mb,
             available_memory_mb,
             memory_pressure: format!("{}", pressure),
-            task_memory_mb: task_memory_mb,
+            task_memory_mb,
         },
         suggestion: SuggestionDetail {
             max_concurrency,
@@ -179,6 +179,7 @@ pub fn suggest_concurrency(
 }
 
 /// 生成人类可读的决策理由
+#[allow(clippy::too_many_arguments)]
 fn build_reasoning(
     cpu_cores: u32,
     cpu_limit: u32,

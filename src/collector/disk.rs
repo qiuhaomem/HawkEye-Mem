@@ -30,9 +30,9 @@ impl DiskCollector {
         ];
 
         for candidate in candidates {
-            let expanded = if candidate.starts_with("~/") {
+            let expanded = if let Some(rest) = candidate.strip_prefix("~/") {
                 if let Some(home) = dirs_next::home_dir() {
-                    home.join(&candidate[2..]).to_string_lossy().to_string()
+                    home.join(rest).to_string_lossy().to_string()
                 } else {
                     continue;
                 }

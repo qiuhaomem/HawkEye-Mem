@@ -34,10 +34,7 @@ impl ContainerDetector {
         }
 
         // 2. 读取 /proc/1/cgroup
-        let cgroup_content = match Self::read_file_trimmed("/proc/1/cgroup") {
-            Some(s) => s,
-            None => return None,
-        };
+        let cgroup_content = Self::read_file_trimmed("/proc/1/cgroup")?;
 
         if cgroup_content.contains("docker") {
             Some("docker".to_string())

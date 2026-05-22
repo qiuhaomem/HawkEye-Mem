@@ -77,8 +77,8 @@ impl<S: CalibrationStore> CalibrationEngine<S> {
         };
 
         // CR-07: 首次升级庆祝提示
-        if matches!(status, CalibrationStatus::Calibrated { .. }) {
-            if !self.celebrated_models.contains(&model_hash) {
+        if matches!(status, CalibrationStatus::Calibrated { .. })
+            && !self.celebrated_models.contains(&model_hash) {
                 eprintln!(
                     "🎉 [hawk-eye-mem] {} 校准完成！你的 Agent 现在心里有数了 ({} 次采样)",
                     model_name,
@@ -86,7 +86,6 @@ impl<S: CalibrationStore> CalibrationEngine<S> {
                 );
                 self.celebrated_models.insert(model_hash);
             }
-        }
 
         Ok(status)
     }
@@ -183,7 +182,7 @@ impl<S: CalibrationStore> CalibrationEngine<S> {
             return Ok(None); // 噪声过滤：<10MB 不记录
         }
 
-        let bytes_per_token = (delta_mb as u64) * 1024 * 1024 / tokens_processed;
+        let bytes_per_token = delta_mb * 1024 * 1024 / tokens_processed;
         let point = CalibrationPoint {
             timestamp: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
