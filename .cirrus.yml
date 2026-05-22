@@ -1,0 +1,85 @@
+# 秋毫mem · Cirrus CI 配置
+# 专门处理 macOS 构建与测试（GitHub Actions macOS runner 排队严重）
+# Cirrus CI macOS 免费额度更充足
+
+# 使用 Apple Silicon 实例
+macos_instance:
+  image: ghcr.io/cirruslabs/macos-runner:sonota
+
+task:
+  name: macOS Build & Test (Apple Silicon)
+
+  env:
+    CARGO_TERM_COLOR: always
+    RUSTFLAGS: -D warnings
+
+  # 安装 Rust 工具链
+  setup_script:
+    - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    - source $HOME/.cargo/env
+    - rustup default stable
+    - rustc --version && cargo --version
+
+  # 构建
+  build_script:
+    - source $HOME/.cargo/env
+    - cargo build --release
+    - ls -lh target/release/hawk-eye-mem
+
+  # 运行全部测试
+  test_script:
+    - source $HOME/.cargo/env
+    - cargo test
+
+  # macOS 实机采集验证
+  verify_script:
+    - source $HOME/.cargo/env
+    - BIN=./target/release/hawk-eye-mem
+    - OUTPUT=$($BIN --json 2>/dev/null)
+    - |
+      TOTAL=$(echo "$OUTPUT" | jq -r '.system.memory.total_mb')
+      AVAIL=$(echo "$OUTPUT" | jq -r '.system.memory.available_mb')
+      PRESSURE=$(echo "$OUTPUT" | jq -r '.agent_guidance.pressure')
+      ACTION=$(echo "$OUTPUT" | jq -r '.agent_guidance.action')
+      echo "=== macOS 系统状态 ==="
+      echo "  总内存: ${TOTAL}MB"
+      echo "  可用:   ${AVAIL}MB"
+      echo "  压力:   ${PRESSURE}"
+      echo "  建议:   ${ACTION}"
+      [ "$TOTAL" -gt 0 ] || { echo "❌ total_mb=0"; exit 1; }
+      [ "$AVAIL" -gt 0 ] || { echo "❌ available_mb=0"; exit 1; }
+      echo "✅ macOS 采集器运行正常!"
+
+  # 上传构建产物
+  binary_artifacts:
+    path: ./target/release/hawk-eye-mem
+
+---
+# Intel macOS 实例（用于验证 x86_64 兼容性）
+task:
+  name: macOS Build & Test (Intel)
+
+  macos_instance:
+    image: ghcr.io/cirruslabs/macos-runner:sonoma-x64
+
+  env:
+    CARGO_TERM_COLOR: always
+    RUSTFLAGS: -D warnings
+
+  setup_script:
+    - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    - source $HOME/.cargo/env
+    - rustup default stable
+    - rustc --version && cargo --version
+
+  build_script:
+    - source $HOME/.cargo/env
+    - cargo build --release
+
+  test_script:
+    - source $HOME/.cargo/env
+    - cargo test
+
+  verify_script:
+    - source $HOME/.cargo/env
+    - ./target/release/hawk-eye-mem --json | jq -e '.system' > /dev/null && echo "✅ JSON output valid"
