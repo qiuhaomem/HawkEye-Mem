@@ -10,6 +10,9 @@ on:
         description: 'Release tag to upload assets to (e.g. v0.4.1)'
         required: true
 
+permissions:
+  contents: write
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -34,12 +37,14 @@ jobs:
           "$BIN" --version
           "$BIN" --json > /dev/null 2>&1 && echo "✅ JSON output OK"
 
+      - name: Rename for upload
+        run: cp ./target/release/hawk-eye-mem ./hawk-eye-mem-x86_64-linux-gnu
+
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag }}
-          files: ./target/release/hawk-eye-mem
-          name: hawk-eye-mem-x86_64-linux-gnu
+          files: ./hawk-eye-mem-x86_64-linux-gnu
 
   build-linux-musl:
     name: Build Linux musl (static)
@@ -68,9 +73,11 @@ jobs:
           readelf -l "$BIN" 2>/dev/null | grep -q "INTERP" && echo "⚠️ has INTERP" || echo "✅ statically linked"
           "$BIN" --version
 
+      - name: Rename for upload
+        run: cp ./target/x86_64-unknown-linux-musl/release/hawk-eye-mem ./hawk-eye-mem-x86_64-linux-musl
+
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag }}
-          files: ./target/x86_64-unknown-linux-musl/release/hawk-eye-mem
-          name: hawk-eye-mem-x86_64-linux-musl
+          files: ./hawk-eye-mem-x86_64-linux-musl
