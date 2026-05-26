@@ -105,29 +105,9 @@ jobs:
             ./target/release/hawk-eye-mem --json | python3 -c "import json,sys;d=json.load(sys.stdin);assert d['system']['memory']['total_mb']>0;print('OK')"
       - save-cargo-cache
 
-  test-macos-intel:
-    macos:
-      xcode: "15.4.0"
-    resource_class: macos.x86.medium.gen2
-    environment:
-      RUSTFLAGS: -D warnings
-      CARGO_TERM_COLOR: always
-    steps:
-      - run:
-          name: "Checkout code"
-          command: |
-            git clone --depth 1 https://github.com/qiuhaomem/HawkEye-Mem.git /tmp/repo
-            cp -a /tmp/repo/. .
-            rm -rf /tmp/repo
-      - install-rust
-      - restore-cargo-cache
-      - run:
-          name: "Build"
-          command: source $HOME/.cargo/env && cargo build --release
-      - run:
-          name: "Run tests"
-          command: source $HOME/.cargo/env && cargo test
-      - save-cargo-cache
+# Intel macOS 已移除：CircleCI 免费套餐不支持 macos.x86.medium.gen2
+# 见 https://circleci.com/docs/using-macos/ 定价方案说明
+# Apple Silicon (M1) runner 正常可用
 
 workflows:
   build-and-test:
@@ -135,4 +115,3 @@ workflows:
       - test-linux
       - build-musl
       - test-macos-arm
-      - test-macos-intel
