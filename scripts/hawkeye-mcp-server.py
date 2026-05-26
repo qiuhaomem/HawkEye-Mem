@@ -34,6 +34,15 @@ HAWKEYE_BIN = "hawk-eye-mem"
 
 def find_binary(name: str) -> str | None:
     import shutil
+    # Prefer locally built binary (has V0.5 features)
+    local_candidates = [
+        os.path.expanduser("~/projects/qiuhaomem/target/release/hawk-eye-mem"),
+        os.path.expanduser("~/projects/qiuhaomem/target/debug/hawk-eye-mem"),
+    ]
+    for c in local_candidates:
+        if os.path.isfile(c) and os.access(c, os.X_OK):
+            return os.path.abspath(c)
+    # Fallback to PATH
     path = shutil.which(name)
     if path:
         return path
@@ -43,8 +52,6 @@ def find_binary(name: str) -> str | None:
         "/usr/local/bin/hawk-eye-mem",
         "./target/release/hawk-eye-mem",
         "./target/debug/hawk-eye-mem",
-        os.path.expanduser("~/projects/qiuhaomem/target/release/hawk-eye-mem"),
-        os.path.expanduser("~/projects/qiuhaomem/target/debug/hawk-eye-mem"),
     ]
     for c in candidates:
         expanded = os.path.expanduser(c)
@@ -254,6 +261,47 @@ def handle_list_tools(params: dict) -> dict:
                     "required": []
                 }
             },
+            # ======== V0.5 新工具 ========
+            {
+                "name": "get_cache_strategy",
+                "description": "获取当前系统资源状态下推荐的最佳缓存策略。返回激进/平衡/保守/紧急四种模式及对应参数。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "model_name": {
+                            "type": "string",
+                            "description": "可选，指定模型名以获取针对该模型校准的策略"
+                        }
+                    },
+                    "required": []
+                }
+            },
+            {
+                "name": "report_cache_hit",
+                "description": "向秋毫mem汇报本次任务的缓存命中数据，用于统计24小时命中率。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "model_name": {
+                            "type": "string",
+                            "description": "使用的模型名（将哈希后存储 — CR-06）"
+                        },
+                        "hit_count": {
+                            "type": "integer",
+                            "description": "缓存命中次数"
+                        },
+                        "miss_count": {
+                            "type": "integer",
+                            "description": "缓存未命中次数"
+                        },
+                        "cost_saved_usd": {
+                            "type": "number",
+                            "description": "本次任务估算节省的API费用（美元）"
+                        }
+                    },
+                    "required": ["model_name", "hit_count", "miss_count"]
+                }
+            },
         ]
     }
 
@@ -378,6 +426,71 @@ def handle_call_tool(params: dict) -> dict:
                 "success": False,
                 "error": str(e)
             })}], "isError": True}
+
+    # ======== V0.5 新工具 ========
+
+    elif name == "get_cache_strategy":
+        args = ["--cache-strategy", "--json"]
+        data = run_hawkeye(args)
+        if "error" in data:
+            return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
+        return {"content": [{"type": "text", "text": json.dumps(data, indent=2)}]}
+
+    elif name == "report_cache_hit":
+        model_name = arguments.get("model_name", "unknown")
+        hit_count = arguments.get("hit_count", 0)
+        miss_count = arguments.get("miss_count", 0)
+        cost_saved = arguments.get("cost_saved_usd", 0.0)
+        # CR-02: fire-and-forget — don't block the caller
+        import hashlib
+        model_hash = hashlib.sha256(model_name.encode()).hexdigest()[:16]
+        report = {
+            "model_name": model_name,
+            "model_hash": model_hash,
+            "hit_count": hit_count,
+            "miss_count": miss_count,
+            "cost_saved_usd": round(cost_saved, 2),  # CR-29: 2 decimal precision
+            "timestamp": __import__("datetime").datetime.now().isoformat(),
+        }
+        # Write to JSONL
+        data_dir = os.path.expanduser("~/.config/hawk-eye-mem")
+        os.makedirs(data_dir, exist_ok=True)
+        stats_path = os.path.join(data_dir, "cache_stats.jsonl")
+        line = json.dumps(report)
+        # CR-09: single record max 1KB
+        if len(line) > 1024:
+            return {"content": [{"type": "text", "text": json.dumps({
+                "received": False,
+                "error": "Record exceeds 1KB limit"
+            })}], "isError": True}
+        # CR-09: file size limit
+        if os.path.isfile(stats_path) and os.path.getsize(stats_path) > 10 * 1024 * 1024:
+            return {"content": [{"type": "text", "text": json.dumps({
+                "received": False,
+                "error": "cache_stats.jsonl exceeds 10MB limit"
+            })}], "isError": True}
+        with open(stats_path, "a") as f:
+            f.write(line + "\n")
+
+        # 获取真实的24小时命中率
+        hit_rate_24h = None
+        try:
+            bin_path = find_binary(HAWKEYE_BIN)
+            if bin_path:
+                stats_result = subprocess.run(
+                    [bin_path, "--cache-stats"],
+                    capture_output=True, timeout=5
+                )
+                if stats_result.returncode == 0:
+                    stats = json.loads(stats_result.stdout.decode())
+                    hit_rate_24h = stats.get("hit_rate_24h", None)
+        except Exception:
+            hit_rate_24h = None
+
+        return {"content": [{"type": "text", "text": json.dumps({
+            "received": True,
+            "hit_rate_24h": hit_rate_24h,
+        }, indent=2)}]}
 
     else:
         return {

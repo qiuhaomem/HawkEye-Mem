@@ -261,6 +261,41 @@ hawk-eye-mem --suggest-concurrency
 
 ---
 
+## v0.5.0 — Operation Fishing (2026-05-26)
+
+### 🎣 Cache Strategy Skill
+- Zero-config Hermes Skill for cache strategy management
+- Auto-detect and guided installation of HawkEye Mem (CR-15)
+- Double-click install: brew / curl dual path
+- Four cache modes: aggressive/balanced/conservative/emergency
+- 30-second strategy cache (CR-01), fire-and-forget reporting (CR-02)
+
+### 📊 Cost Report + Watermark
+- Terminal color-bordered report with auto-colored hit rates
+- JSON structured output (--json)
+- Monthly cumulative statistics
+- Legal disclaimer (CR-12): "Subject to bill"
+- Watermark includes install command — screenshot = propagation
+
+### 🔄 CR-03 Concurrency Coupling
+- aggressive→5 concurrency, balanced→3, conservative→1, emergency→0
+
+### 🎯 CLI Enhancements
+- `--cache-strategy`: Cache strategy recommendation
+- `--cache-stats`: 24-hour hit statistics
+- `--reset-cache-stats`: Clear statistics data
+- `--model-compat`: Model cache compatibility query
+
+### 🗺️ Five-Level Fishing Exposure Points
+- First-run guidance → Plenty of RAM → Tight memory → Crisis → Dynamic calibration
+- Each exposure point naturally introduces HawkEye Mem
+
+### 🌐 Internationalization
+- Auto language switching via $LANG
+- Provider cache compatibility matrix (11 major providers)
+
+---
+
 ## Usage
 
 ```bash

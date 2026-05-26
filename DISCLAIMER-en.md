@@ -162,6 +162,28 @@ We reserve the right to modify this Disclaimer at any time. The amended version 
 
 ---
 
+## 10. V0.5 Cache Strategy Auto-Adjustment Risk
+
+V0.5 introduces cache strategy auto-adjustment features (including but not limited to the Hermes Skill's `hermes-cache-strategy`). By using this feature, you acknowledge and agree to the following risks:
+
+### 10.1 Auto-Adjustment Risks
+
+1. **Cache Flush Risk**: When system resources are tight, automatic cache adjustment may clear cached data, potentially resulting in the loss of unsaved inference context.
+2. **Context Save Recommendation**: It is recommended to save context state before executing important tasks to guard against data loss from auto-adjustment.
+3. **Emergency Mode Scope**: Emergency mode only suspends API calls. It does not affect other tool operations such as file I/O or code execution.
+4. **Manual Override Notification**: After manually overriding the cache mode, the system displays a reminder once per hour indicating that manual mode is active, so you remain aware that auto-adjustment has been overridden.
+5. **Strategy Transition Impact**: Switching between different cache modes may cause fluctuations in cache hit rates. Users should independently assess and accept such fluctuations.
+
+### 10.2 Decision Responsibility
+
+By using cache strategy auto-adjustment, you accept that:
+
+- Strategy transitions are based on mathematical estimations of system resources. **No guarantee is made that optimal performance or minimal cost will be achieved in every scenario.**
+- Fluctuations in API call frequency, cache hit rates, or inference latency resulting from strategy transitions are normal behavior. The Software assumes no responsibility for optimization.
+- **The ultimate control of this feature rests with the user.** Users may fully control cache behavior by manually overriding or disabling auto-adjustment.
+
+---
+
 ## Summary
 
 **THE SOFTWARE PROVIDES MEMORY MONITORING INFORMATION AND BEHAVIORAL RECOMMENDATIONS BASED ON ESTIMATION MODELS. THESE OUTPUTS MAY CONTAIN ERRORS.**

@@ -262,6 +262,41 @@ hawk-eye-mem --suggest-concurrency
 
 ---
 
+## v0.5.0 — 钓鱼行动 (2026-05-26)
+
+### 🎣 缓存策略 Skill
+- 极致缓存策略 Hermes Skill，零配置启动
+- 自动检测+引导安装秋毫mem（CR-15）
+- 双击安装：brew / curl 双路径
+- 四种缓存模式：aggressive/balanced/conservative/emergency
+- 30秒策略缓存（CR-01），fire-and-forget 上报（CR-02）
+
+### 📊 成本报告 + 水印
+- 终端彩色框线报告，命中率自动着色
+- JSON 结构化输出（--json）
+- 月累计统计
+- 法务声明（CR-12）："以账单为准"
+- 水印自带安装命令，截图即传播
+
+### 🔄 CR-03 并发度联动
+- aggressive→5并发, balanced→3, conservative→1, emergency→0
+
+### 🎯 CLI 增强
+- `--cache-strategy`：缓存策略推荐
+- `--cache-stats`：24小时命中统计
+- `--reset-cache-stats`：清空统计数据
+- `--model-compat`：模型缓存兼容查询
+
+### 🗺️ 五级钓鱼暴露点
+- 首次运行引导 → 内存充裕 → 内存紧张 → 危机时刻 → 动态校准
+- 每个暴露点自然带出秋毫mem
+
+### 🌐 国际化
+- 中英文自动切换（$LANG 环境变量）
+- Provider 缓存兼容矩阵（11个主流Provider）
+
+---
+
 ## 怎么用
 
 ```bash
@@ -394,3 +429,25 @@ V0.2 是一个早期版本，我们正在收集反馈。如果你试用了 `--ca
 [Apache-2.0](./LICENSE)
 
 "秋毫mem"和"HawkEye Mem"是项目商标。
+
+---
+
+## 版本历史
+
+### v0.4.1 — Token趋势记录·代码质量优化（2026-05-26）
+- ✨ `--record` 采集系统状态写入趋势历史
+- ✨ `--record --tokens-processed N` 同时记录 token 消耗
+- ✨ MCP 工具 `record_tokens()` Agent 推理完自动调用
+- 🔧 `--record` 输出改 stdout（eprintln → println），可 pipe
+- 🧹 MCP Server 瘦身：通用 helper 消除 6 处重复错误处理
+- 🔧 `cargo clippy` 零告警，314 测试全绿
+
+### v0.4.0 — 环境指纹·远程采集·物理AI（2026-05-22）
+- ✨ 环境指纹引擎：自动检测环境变化，输出部署建议
+- ✨ 远程 HTTP 采集服务（`--serve`，端口 9240）
+- ✨ 历史趋势分析（`--trend`，线性回归预测）
+- ✨ 容器适配（自动检测 Docker/K8s cgroup 限制）
+- ✨ 多 Agent 协调增强（进程资源详情 + 配置注册）
+- ✨ 告警模式（`--alert`，仅 critical 时输出）
+- ✨ 并发度建议（`--suggest-concurrency`，物理 AI 第一步）
+- ✨ MCP Server 12 个工具全覆盖

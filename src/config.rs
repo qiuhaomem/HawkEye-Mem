@@ -18,6 +18,16 @@ pub struct AppConfig {
     pub remote: Option<RemoteConfig>,
     #[allow(dead_code)]
     pub history: Option<HistoryConfig>,
+    #[allow(dead_code)]
+    pub cache: Option<CacheConfig>,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+pub struct CacheConfig {
+    pub mode_override: Option<String>,
+    pub max_cache_mb_override: Option<u64>,
+    pub stats_retention_days: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]

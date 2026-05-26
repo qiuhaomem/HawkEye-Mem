@@ -1,3 +1,4 @@
+mod cache;
 mod calibration;
 mod collector;
 mod config;
@@ -38,7 +39,7 @@ margin = 30.0
 #[derive(Parser)]
 #[command(
     name = "hawk-eye-mem",
-    version = "0.4.1",
+    version = "0.5.0",
     about = "AI-Native memory monitoring"
 )]
 struct Cli {
@@ -143,6 +144,20 @@ struct Cli {
     /// 清空历史记录数据
     #[arg(long)]
     clear_history: bool,
+
+    // === V0.5 缓存策略参数 ===
+    /// 输出当前推荐的缓存策略 JSON
+    #[arg(long)]
+    cache_strategy: bool,
+    /// 输出 24 小时缓存命中统计
+    #[arg(long)]
+    cache_stats: bool,
+    /// 清空缓存统计数据
+    #[arg(long)]
+    reset_cache_stats: bool,
+    /// 查看模型缓存兼容性（可选参数：model@provider，不传则列出所有Provider）
+    #[arg(long = "model-compat", num_args = 0..=1, default_missing_value = "")]
+    model_compat: Option<String>,
 }
 
 fn main() {
@@ -197,6 +212,65 @@ fn main() {
     // === --list-models：打印模型表格 ===
     if cli.list_models {
         print_model_table();
+        return;
+    }
+
+    // === V0.5 --cache-strategy：输出缓存策略 ===
+    if cli.cache_strategy {
+        let registry = collector::registry::CollectorRegistry::new();
+        let snapshot = registry.collect_all();
+        if let Some(ref mem) = snapshot.memory {
+            let pressure = cache::MemoryPressure::from(mem);
+            let strategy = cache::CacheAdvisor::recommend(&pressure);
+            if cli.json {
+                println!("{}", serde_json::to_string_pretty(&strategy).unwrap());
+            } else {
+                println!("📊 缓存策略: {}", strategy.mode);
+                println!("   TTL: {}s", strategy.ttl_seconds);
+                println!("   最大缓存: {}MB", strategy.max_cache_mb);
+                println!("   预取: {}", if strategy.prefetch_enabled { "✅" } else { "❌" });
+                println!("   原因: {}", strategy.reason);
+                println!("   协议版本: v{}", strategy.protocol_version);
+            }
+        } else {
+            eprintln!("无法获取内存信息");
+        }
+        return;
+    }
+
+    // === V0.5 --cache-stats：输出24小时缓存命中统计 ===
+    if cli.cache_stats {
+        let stats_path = dirs_next::home_dir()
+            .unwrap_or_else(|| PathBuf::from("/tmp"))
+            .join(".config/hawk-eye-mem/cache_stats.jsonl");
+        let store = cache::CacheStatsStore::new(stats_path);
+        let collector = cache::CacheStatsCollector::new(store);
+        let stats = collector.stats_24h();
+        println!("{}", serde_json::to_string_pretty(&stats).unwrap());
+        return;
+    }
+
+    // === V0.5 --reset-cache-stats：清空缓存统计数据 ===
+    if cli.reset_cache_stats {
+        let stats_path = dirs_next::home_dir()
+            .unwrap_or_else(|| PathBuf::from("/tmp"))
+            .join(".config/hawk-eye-mem/cache_stats.jsonl");
+        match std::fs::write(&stats_path, "") {
+            Ok(_) => {
+                println!("Cache stats have been reset.");
+            }
+            Err(e) => {
+                eprintln!("Failed to reset cache stats: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+
+    // === V0.5 --model-compat：查看模型缓存兼容性 ===
+    if cli.model_compat.is_some() {
+        let result = check_model_compatibility(cli.model_compat.as_deref());
+        println!("{}", serde_json::to_string_pretty(&result).unwrap());
         return;
     }
 
@@ -1228,4 +1302,211 @@ mod tests {
         let idx = find_recommended(&results);
         assert_eq!(idx, Some(1), "应选择约束最少的 (索引 1)");
     }
+}
+
+// ============================================================================
+// V0.5 --model-compat：读取 Provider 缓存兼容矩阵
+// ============================================================================
+
+use serde_json::Value;
+
+/// Parse "model@provider" format into (provider, model) tuple.
+/// Returns (provider_str, model_name).
+fn parse_model_spec(spec: &str) -> (String, String) {
+    if let Some(at_pos) = spec.rfind('@') {
+        let model = &spec[..at_pos];
+        let provider = &spec[at_pos + 1..];
+        (provider.to_string(), model.to_string())
+    } else {
+        // No @ — treat entire string as model name
+        (String::new(), spec.to_string())
+    }
+}
+
+/// Check model cache compatibility.
+/// If `model_spec` is Some("model@provider"), checks that specific model.
+/// If `model_spec` is Some("model") without @, tries to find the model in all providers.
+/// If `model_spec` is None, lists all providers.
+fn check_model_compatibility(model_spec: Option<&str>) -> Value {
+    // Read the provider_cache_compat.json
+    let compat_path = dirs_next::home_dir()
+        .unwrap_or_else(|| PathBuf::from("/tmp"))
+        .join(".hermes/skills/hermes-cache-strategy/provider_cache_compat.json");
+
+    let compat: Value = match std::fs::read_to_string(&compat_path) {
+        Ok(content) => serde_json::from_str(&content).unwrap_or_else(|e| {
+            serde_json::json!({
+                "error": format!("Failed to parse provider_cache_compat.json: {}", e),
+                "path": compat_path.to_string_lossy().to_string()
+            })
+        }),
+        Err(e) => {
+            return serde_json::json!({
+                "error": format!("Failed to read provider_cache_compat.json: {}", e),
+                "path": compat_path.to_string_lossy().to_string()
+            });
+        }
+    };
+
+    let model_spec = match model_spec {
+        Some(s) if s.is_empty() => {
+            // No argument: list all providers (same as None)
+            let providers = compat.get("providers").and_then(|p| p.as_object());
+            let mut list = Vec::new();
+            if let Some(providers) = providers {
+                for (name, info) in providers {
+                    let supports_prompt_caching = info
+                        .get("supports_prompt_caching")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
+                    let models = info
+                        .get("models")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|m| m.as_str().map(String::from))
+                                .collect::<Vec<_>>()
+                        })
+                        .unwrap_or_default();
+                    list.push(serde_json::json!({
+                        "name": name,
+                        "supports_prompt_caching": supports_prompt_caching,
+                        "models": models,
+                    }));
+                }
+            }
+            return serde_json::json!({
+                "version": compat.get("version"),
+                "providers": list,
+            });
+        }
+        Some(s) => s,
+        None => {
+            // No argument: list all providers
+            let providers = compat.get("providers").and_then(|p| p.as_object());
+            let mut list = Vec::new();
+            if let Some(providers) = providers {
+                for (name, info) in providers {
+                    let supports_prompt_caching = info
+                        .get("supports_prompt_caching")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
+                    let models = info
+                        .get("models")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|m| m.as_str().map(String::from))
+                                .collect::<Vec<_>>()
+                        })
+                        .unwrap_or_default();
+                    list.push(serde_json::json!({
+                        "name": name,
+                        "supports_prompt_caching": supports_prompt_caching,
+                        "models": models,
+                    }));
+                }
+            }
+            return serde_json::json!({
+                "version": compat.get("version"),
+                "providers": list,
+            });
+        }
+    };
+
+    // Has model spec — check specific model
+    let (provider_from_spec, model_name) = parse_model_spec(model_spec);
+
+    let providers = match compat.get("providers").and_then(|p| p.as_object()) {
+        Some(p) => p,
+        None => {
+            return serde_json::json!({
+                "model": model_spec,
+                "error": "No providers found in compatibility matrix"
+            });
+        }
+    };
+
+    if provider_from_spec.is_empty() {
+        // No provider specified — search all providers for this model
+        let mut found = Vec::new();
+        for (prov_name, info) in providers {
+            if let Some(models) = info.get("models").and_then(|v| v.as_array()) {
+                if models.iter().any(|m| {
+                    m.as_str().map_or(false, |m_name| m_name == model_name)
+                }) || models.iter().any(|m| m.as_str() == Some("*"))
+                {
+                    let supports_prompt_caching = info
+                        .get("supports_prompt_caching")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
+                    found.push(serde_json::json!({
+                        "provider": prov_name,
+                        "supports_prompt_caching": supports_prompt_caching,
+                    }));
+                }
+            }
+        }
+        if found.is_empty() {
+            return serde_json::json!({
+                "model": model_spec,
+                "found": false,
+                "note": format!("Model '{}' not found in any provider's compatibility list", model_name),
+            });
+        }
+        return serde_json::json!({
+            "model": model_spec,
+            "found": true,
+            "providers": found,
+        });
+    }
+
+    // Specific provider requested
+    let provider_info = match providers.get(&provider_from_spec) {
+        Some(info) => info,
+        None => {
+            return serde_json::json!({
+                "model": model_spec,
+                "provider": provider_from_spec,
+                "error": format!("Provider '{}' not found in compatibility matrix", provider_from_spec),
+            });
+        }
+    };
+
+    let supports_prompt_caching = provider_info
+        .get("supports_prompt_caching")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let models = provider_info
+        .get("models")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|m| m.as_str().map(String::from))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    let model_in_list = models.iter().any(|m| m == "*" || m == &model_name);
+    let note = if !model_in_list {
+        Some(format!(
+            "Model '{}' not in provider '{}' known model list, using provider-level defaults",
+            model_name, provider_from_spec
+        ))
+    } else if !supports_prompt_caching {
+        Some(format!(
+            "{} 不支持 prompt caching",
+            provider_from_spec
+        ))
+    } else {
+        None
+    };
+
+    serde_json::json!({
+        "model": model_spec,
+        "provider": provider_from_spec,
+        "supports_prompt_caching": supports_prompt_caching,
+        "supported_models": models,
+        "note": note,
+    })
 }
