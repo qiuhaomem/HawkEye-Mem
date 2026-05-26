@@ -1,6 +1,6 @@
 [package]
 name = "hawk-eye-mem"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 description = "AI-Native memory monitoring CLI — let your Agent feel the RAM"
 

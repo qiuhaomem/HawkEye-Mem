@@ -38,7 +38,7 @@ margin = 30.0
 #[derive(Parser)]
 #[command(
     name = "hawk-eye-mem",
-    version = "0.4.0",
+    version = "0.4.1",
     about = "AI-Native memory monitoring"
 )]
 struct Cli {
@@ -128,6 +128,13 @@ struct Cli {
     /// HTTP 服务端监听端口（默认 9240，仅 --serve 模式下有效）
     #[arg(long, default_value = "9240")]
     port: u16,
+
+    // === V0.4.1: 数据记录参数 ===
+    /// 采集当前系统状态并记录到趋势历史（需要 >=10 个点才能生成趋势报告）
+    #[arg(long)]
+    record: bool,
+    // 复用已有的 --tokens-processed 参数（在 calibration 段已声明）
+    // 配合 --record 使用时自动记录 token 数
 
     // === V0.4 趋势分析参数 ===
     /// 输出内存趋势分析报告
@@ -394,6 +401,46 @@ fn main() {
                     points.len()
                 );
                 std::process::exit(0);
+            }
+        }
+        return;
+    }
+
+    // === V0.4.1: --record 采集并记录趋势数据 ===
+    if cli.record {
+        let mut registry = CollectorRegistry::new();
+        if let Ok(Some(cfg)) = config::AppConfig::load(cli.config.as_deref()) {
+            if let Some(dirs) = cfg.directories {
+                registry.set_directories(dirs.model_cache);
+            }
+        }
+        let snapshot = registry.collect_all();
+        let memory = snapshot.memory.as_ref()
+            .expect("Memory collector must succeed");
+        let cpu = snapshot.cpu.as_ref()
+            .map(|c| c.load_avg_1m)
+            .unwrap_or(0.0);
+        let disk = snapshot.disk.as_ref()
+            .map(|d| d.available_mb)
+            .unwrap_or(0);
+        let pressure_str = memory.pressure.to_string();
+        let point = trends::HistoryPoint {
+            timestamp: snapshot.timestamp.clone(),
+            memory_available_mb: memory.available_mb,
+            memory_pressure: pressure_str,
+            cpu_load: cpu,
+            disk_available_mb: disk,
+            tokens_processed: cli.tokens_processed,
+        };
+        let store = HistoryStore::new(30);
+        match store.record(&point) {
+            Ok(_) => {
+                let points = store.read_all().unwrap_or_default();
+                println!("✓ Recorded system state to history ({} points total)", points.len());
+            }
+            Err(e) => {
+                eprintln!("Failed to record history: {}", e);
+                std::process::exit(1);
             }
         }
         return;
