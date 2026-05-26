@@ -3,6 +3,9 @@
 秋毫mem MCP Server — 让 AI Agent 通过 MCP 协议直接感知系统资源。
 
 V0.4 新增：
+  - Token消耗记录（record_tokens MCP Tool + --record --tokens-processed CLI）
+
+V0.4.1 新增：
   - 环境指纹（get_environment_fingerprint）
   - 趋势报告（get_trend_report）
   - 并发度建议（get_concurrency_suggestion）
@@ -77,6 +80,25 @@ def run_hawkeye(args: list[str]) -> dict:
         return {"error": f"binary not found: {bin_path}"}
     except Exception as e:
         return {"error": str(e)}
+
+
+# ==================== 通用工具函数 ====================
+
+def hawk_result(data: dict) -> dict:
+    """通用 hawkeye 工具调用结果处理：检查错误 → 返回 MCP 响应"""
+    if "error" in data:
+        return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
+    return {"content": [{"type": "text", "text": json.dumps(data, indent=2)}]}
+
+
+def hawk_result_field(data: dict, *keys: str) -> dict:
+    """hawkeye 工具调用 + 提取指定字段"""
+    if "error" in data:
+        return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
+    extracted = data
+    for k in keys:
+        extracted = extracted.get(k, {})
+    return {"content": [{"type": "text", "text": json.dumps(extracted, indent=2)}]}
 
 
 # ==================== MCP 协议实现 ====================
@@ -262,17 +284,15 @@ def handle_call_tool(params: dict) -> dict:
     elif name == "get_memory_guidance":
         data = run_hawkeye(["--json"])
         if "error" in data:
-            return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
-        guidance = data.get("agent_guidance", data)
-        return {"content": [{"type": "text", "text": json.dumps(guidance, indent=2)}]}
+            return hawk_result(data)
+        return {"content": [{"type": "text", "text": json.dumps(data.get("agent_guidance", data), indent=2)}]}
 
     elif name == "get_gpu_status":
         data = run_hawkeye(["--json"])
         if "error" in data:
-            return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
+            return hawk_result(data)
         gpu_data = data.get("system", {}).get("gpu", [])
         if not gpu_data:
-            # Fallback: try --gpu-list
             list_data = run_hawkeye(["--gpu-list"])
             return {"content": [{"type": "text", "text": json.dumps(
                 {"gpu": gpu_data, "note": "No GPU detected on this system"} if not gpu_data else {"gpu": gpu_data},
@@ -281,55 +301,37 @@ def handle_call_tool(params: dict) -> dict:
         return {"content": [{"type": "text", "text": json.dumps({"gpu": gpu_data}, indent=2)}]}
 
     elif name == "get_thermal_status":
-        data = run_hawkeye(["--json"])
-        if "error" in data:
-            return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
-        thermal_data = data.get("system", {}).get("thermal", {})
-        return {"content": [{"type": "text", "text": json.dumps(thermal_data, indent=2)}]}
+        return hawk_result_field(run_hawkeye(["--json"]), "system", "thermal")
 
     elif name == "get_agent_processes":
-        data = run_hawkeye(["--json"])
-        if "error" in data:
-            return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
-        agents_data = data.get("system", {}).get("agents", {})
-        return {"content": [{"type": "text", "text": json.dumps(agents_data, indent=2)}]}
+        return hawk_result_field(run_hawkeye(["--json"]), "system", "agents")
 
     elif name == "get_calibration_status":
         model_name = arguments.get("model_name", "")
         if not model_name:
             return {"content": [{"type": "text", "text": "Missing required argument: model_name"}], "isError": True}
-        data = run_hawkeye(["--calibration-stats", "--model-name", model_name])
-        if "error" in data:
-            return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
-        return {"content": [{"type": "text", "text": json.dumps(data, indent=2)}]}
+        return hawk_result(run_hawkeye(["--calibration-stats", "--model-name", model_name]))
 
     # ======== V0.4 新工具 ========
 
     elif name == "get_environment_fingerprint":
         data = run_hawkeye(["--env-fingerprint"])
         if "error" in data:
-            # 如果 CLI 报错，可能是无指纹数据
             return {"content": [{"type": "text", "text": json.dumps({
                 "fingerprint": None,
                 "message": "当前环境无指纹记录，请先运行 hawk-eye-mem 采集基线数据。"
             }, indent=2)}]}
-        return {"content": [{"type": "text", "text": json.dumps(data, indent=2)}]}
+        return hawk_result(data)
 
     elif name == "get_trend_report":
-        data = run_hawkeye(["--trend"])
-        if "error" in data:
-            return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
-        return {"content": [{"type": "text", "text": json.dumps(data, indent=2)}]}
+        return hawk_result(run_hawkeye(["--trend"]))
 
     elif name == "get_concurrency_suggestion":
         args = ["--suggest-concurrency"]
         task_memory = arguments.get("task_memory")
         if task_memory is not None:
             args.extend(["--task-memory", str(task_memory)])
-        data = run_hawkeye(args)
-        if "error" in data:
-            return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
-        return {"content": [{"type": "text", "text": json.dumps(data, indent=2)}]}
+        return hawk_result(run_hawkeye(args))
 
     elif name == "reset_environment_fingerprint":
         data = run_hawkeye(["--reset-environment", "--force"])

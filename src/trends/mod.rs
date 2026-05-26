@@ -19,6 +19,9 @@ pub struct HistoryPoint {
     pub memory_pressure: String,
     pub cpu_load: f64,
     pub disk_available_mb: u64,
+    /// 本次推理实际处理的 token 数（可选，配合校准数据使用）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tokens_processed: Option<u64>,
 }
 
 /// 趋势分析报告
@@ -367,6 +370,7 @@ mod tests {
             memory_pressure: "low".to_string(),
             cpu_load: 0.5,
             disk_available_mb: 50000,
+            tokens_processed: None,
         }
     }
 
