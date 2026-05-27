@@ -77,7 +77,7 @@ fn check_string_field(v: &serde_json::Value, path: &[&str], check_non_empty: boo
     );
     if check_non_empty {
         assert!(
-            !current.as_str().unwrap().is_empty(),
+            !current.as_str().expect("字符串字段应有值").is_empty(),
             "Field {:?} should not be empty",
             path
         );
@@ -251,7 +251,7 @@ fn test_st_json_001_top_level_fields() {
         "system",
         "agent_guidance",
     ];
-    for key in v.as_object().unwrap().keys() {
+    for key in v.as_object().expect("顶层JSON应为对象").keys() {
         assert!(
             allowed_keys.contains(&key.as_str()),
             "unexpected top-level key: {}",
@@ -266,8 +266,10 @@ fn test_st_json_002_system_fields() {
     let (stdout, _, code) = run_bin(&["--json"]);
     assert_eq!(code, 0);
 
-    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let system = v.get("system").unwrap();
+    let v: serde_json::Value = serde_json::from_str(&stdout)
+        .expect("--json 应输出合法 JSON");
+    let system = v.get("system")
+        .expect("JSON 应包含 system 字段");
 
     // 必含字段
     check_number_field(&v, &["system", "total_mb"]);
@@ -276,11 +278,13 @@ fn test_st_json_002_system_fields() {
     check_number_field(&v, &["system", "used_percent"]);
 
     // 数值合理性：total_mb > 0
-    let total_mb = system["total_mb"].as_u64().unwrap();
+    let total_mb = system["total_mb"].as_u64()
+        .expect("total_mb 应为 u64");
     assert!(total_mb > 0, "total_mb must be > 0, got: {}", total_mb);
 
     // used_percent 在 0-100 范围内
-    let used_percent = system["used_percent"].as_f64().unwrap();
+    let used_percent = system["used_percent"].as_f64()
+        .expect("used_percent 应为 f64");
     assert!(
         (0.0..=100.0).contains(&used_percent),
         "used_percent must be 0-100, got: {}",
@@ -288,7 +292,8 @@ fn test_st_json_002_system_fields() {
     );
 
     // available 不应超过 total
-    let available = system["available_mb"].as_u64().unwrap();
+    let available = system["available_mb"].as_u64()
+        .expect("available_mb 应为 u64");
     assert!(
         available <= total_mb,
         "available_mb ({}) must not exceed total_mb ({})",
@@ -321,8 +326,10 @@ fn test_st_json_003_agent_guidance_fields() {
     let (stdout, _, code) = run_bin(&["--json"]);
     assert_eq!(code, 0);
 
-    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let guidance = v.get("agent_guidance").unwrap();
+    let v: serde_json::Value = serde_json::from_str(&stdout)
+        .expect("--json 应输出合法 JSON");
+    let guidance = v.get("agent_guidance")
+        .expect("JSON 应包含 agent_guidance 字段");
 
     // 必含字段（字符串）
     check_string_field(&v, &["agent_guidance", "action"], true);
@@ -335,7 +342,8 @@ fn test_st_json_003_agent_guidance_fields() {
     check_number_field(&v, &["agent_guidance", "estimated_safe_context_window"]);
 
     // pressure 必须是合法值
-    let pressure = guidance["pressure"].as_str().unwrap();
+    let pressure = guidance["pressure"].as_str()
+        .expect("pressure 应为字符串");
     assert!(
         ["low", "medium", "high", "critical"].contains(&pressure),
         "pressure must be one of low/medium/high/critical, got: {}",
@@ -343,7 +351,8 @@ fn test_st_json_003_agent_guidance_fields() {
     );
 
     // action 必须是合法值
-    let action = guidance["action"].as_str().unwrap();
+    let action = guidance["action"].as_str()
+        .expect("action 应为字符串");
     assert!(
         ["ok", "monitor", "reduce_context", "abort_safely"].contains(&action),
         "action must be ok/monitor/reduce_context/abort_safely, got: {}",
@@ -351,7 +360,8 @@ fn test_st_json_003_agent_guidance_fields() {
     );
 
     // confidence 必须是合法值
-    let confidence = guidance["confidence"].as_str().unwrap();
+    let confidence = guidance["confidence"].as_str()
+        .expect("confidence 应为字符串");
     assert!(
         ["conservative", "calibrated"].contains(&confidence),
         "confidence must be conservative/calibrated, got: {}",
@@ -364,7 +374,8 @@ fn test_st_json_003_agent_guidance_fields() {
         .expect("estimated_safe_context_window should be a valid u64");
 
     // _note 应有正确内容
-    let note = guidance["_note"].as_str().unwrap();
+    let note = guidance["_note"].as_str()
+        .expect("_note 应为字符串");
     assert!(
         note.contains("recommendations"),
         "_note should mention recommendations, got: {}",
@@ -390,9 +401,8 @@ fn test_st_json_004_type_strictness() {
     let (stdout, _, code) = run_bin(&["--json"]);
     assert_eq!(code, 0);
 
-    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-
-    // 递归检查所有值：不应有 null（除非是 Option 字段）
+    let v: serde_json::Value = serde_json::from_str(&stdout)
+        .expect("--json 应输出合法 JSON");
     fn check_no_null(val: &serde_json::Value, path: &str, skip_keys: &[&str]) {
         match val {
             serde_json::Value::Null
@@ -434,9 +444,11 @@ fn test_st_json_005_continuous_json_consistency() {
     assert_eq!(lines.len(), 3, "should output 3 JSON lines");
 
     // 缓存第一个 JSON 的键集合
-    let first: serde_json::Value = serde_json::from_str(lines[0]).unwrap();
+    let first: serde_json::Value = serde_json::from_str(lines[0])
+        .expect("第0行应为合法 JSON");
     let first_keys: Vec<String> = {
-        let obj = first.as_object().unwrap();
+        let obj = first.as_object()
+            .expect("first 应为 JSON 对象");
         let mut keys: Vec<String> = obj.keys().cloned().collect();
         keys.sort();
         keys
@@ -444,9 +456,11 @@ fn test_st_json_005_continuous_json_consistency() {
 
     // 后续每行的键集合必须一致
     for (i, line) in lines.iter().enumerate().skip(1) {
-        let cur: serde_json::Value = serde_json::from_str(line).unwrap();
+        let cur: serde_json::Value = serde_json::from_str(line)
+            .expect("每行应为合法 JSON");
         let cur_keys: Vec<String> = {
-            let obj = cur.as_object().unwrap();
+            let obj = cur.as_object()
+                .expect("cur 应为 JSON 对象");
             let mut keys: Vec<String> = obj.keys().cloned().collect();
             keys.sort();
             keys
@@ -469,7 +483,7 @@ fn test_st_as_001_70b_infeasible() {
     let (stdout, _, code) = run_bin(&["--can-run", "--model-size", "70000000000"]);
     assert_eq!(code, 0);
 
-    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&stdout).expect("JSON输出应该合法");
     let verdict = v
         .get("verdict")
         .expect("assessment should have verdict")
@@ -489,7 +503,7 @@ fn test_st_as_001_70b_infeasible() {
         .get("constraints")
         .expect("assessment should have constraints")
         .as_array()
-        .unwrap();
+        .expect("constraints 应为数组");
     assert!(
         !constraints.is_empty(),
         "70B model should have memory constraints"
@@ -500,7 +514,7 @@ fn test_st_as_001_70b_infeasible() {
         .get("safe_options")
         .expect("assessment should have safe_options")
         .as_array()
-        .unwrap();
+        .expect("safe_options 应为数组");
     assert!(!options.is_empty(), "70B should have safe options");
 }
 
@@ -510,9 +524,9 @@ fn test_st_as_002_nonexistent_model() {
     let (stdout, _, code) = run_bin(&["--can-run", "--model", "nonexistent-model-999b"]);
     assert_eq!(code, 0, "--can-run with nonexistent model should not crash");
 
-    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&stdout).expect("JSON输出应该合法");
     // request 应包含模型名
-    let request = v.get("request").unwrap();
+    let request = v.get("request").expect("评估结果应含 request");
     assert_eq!(request["model_name"], "nonexistent-model-999b");
 
     // 应有 verdict（即便模型不存在）
@@ -530,8 +544,8 @@ fn test_st_as_003_huge_context() {
     ]);
     assert_eq!(code, 0);
 
-    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let verdict = v.get("verdict").unwrap().as_str().unwrap_or("");
+    let v: serde_json::Value = serde_json::from_str(&stdout).expect("JSON输出应该合法");
+    let verdict = v.get("verdict").expect("评估结果应含 verdict").as_str().unwrap_or("");
 
     // verdict 可能为 feasible（大内存机器）或 feasible_with_caveats
     // 只验证不 panic 且输出结构正确
@@ -542,7 +556,7 @@ fn test_st_as_003_huge_context() {
     );
 
     // 验证 request 包含指定 context
-    let request = v.get("request").unwrap();
+    let request = v.get("request").expect("评估结果应含 request");
     assert_eq!(
         request["context_window"], 32768,
         "request should contain context_window=32768"
@@ -561,8 +575,8 @@ fn test_st_as_004_huge_model_size() {
     ]);
     assert_eq!(code, 0);
 
-    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let verdict = v.get("verdict").unwrap().as_str().unwrap_or("");
+    let v: serde_json::Value = serde_json::from_str(&stdout).expect("JSON输出应该合法");
+    let verdict = v.get("verdict").expect("评估结果应含 verdict").as_str().unwrap_or("");
 
     // 200B 模型在任何机器上都不 feasible
     assert_ne!(
@@ -575,7 +589,7 @@ fn test_st_as_004_huge_model_size() {
         .get("constraints")
         .expect("assessment should have constraints")
         .as_array()
-        .unwrap();
+        .expect("constraints 应为数组");
     assert!(
         !constraints.is_empty(),
         "200B model should have constraints"
@@ -597,14 +611,14 @@ fn test_st_as_005_compare_three_models() {
     ]);
     assert_eq!(code, 0);
 
-    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&stdout).expect("JSON输出应该合法");
 
     // 比较输出应有 comparison 数组
     let comparison = v
         .get("comparison")
         .expect("should have 'comparison' array")
         .as_array()
-        .unwrap();
+        .expect("comparison 应为数组");
     assert_eq!(
         comparison.len(),
         3,
@@ -679,16 +693,16 @@ fn test_st_int_002_structure_consistent() {
 
     // 比较 system 和 agent_guidance 的键集合
     let first_system_keys: Vec<String> = {
-        let v: serde_json::Value = serde_json::from_str(lines[0]).unwrap();
-        let sys = v["system"].as_object().unwrap();
+        let v: serde_json::Value = serde_json::from_str(lines[0]).expect("JSON输出应该合法");
+        let sys = v["system"].as_object().expect("system 应为对象");
         let mut keys: Vec<String> = sys.keys().cloned().collect();
         keys.sort();
         keys
     };
 
     for (i, line) in lines.iter().enumerate().skip(1) {
-        let v: serde_json::Value = serde_json::from_str(line).unwrap();
-        let sys = v["system"].as_object().unwrap();
+        let v: serde_json::Value = serde_json::from_str(line).expect("JSON输出应该合法");
+        let sys = v["system"].as_object().expect("system 应为对象");
         let mut keys: Vec<String> = sys.keys().cloned().collect();
         keys.sort();
         assert_eq!(
@@ -700,15 +714,15 @@ fn test_st_int_002_structure_consistent() {
         // agent_guidance 的键也应一致
         let guidance_keys: Vec<String> = v["agent_guidance"]
             .as_object()
-            .unwrap()
+            .expect("agent_guidance 应为对象")
             .keys()
             .cloned()
             .collect();
         let ref_guidance_keys: Vec<String> = {
-            let ref_v: serde_json::Value = serde_json::from_str(lines[0]).unwrap();
+            let ref_v: serde_json::Value = serde_json::from_str(lines[0]).expect("JSON输出应该合法");
             ref_v["agent_guidance"]
                 .as_object()
-                .unwrap()
+                .expect("agent_guidance 应为对象")
                 .keys()
                 .cloned()
                 .collect()
@@ -732,8 +746,8 @@ fn test_st_int_003_duration_stability() {
     let mut durations: Vec<f64> = Vec::new();
 
     for line in &lines {
-        let v: serde_json::Value = serde_json::from_str(line).unwrap();
-        let d = v["collection_duration_ms"].as_f64().unwrap();
+        let v: serde_json::Value = serde_json::from_str(line).expect("JSON输出应该合法");
+        let d = v["collection_duration_ms"].as_f64().expect("collection_duration_ms 应为数字");
         durations.push(d);
     }
 
@@ -768,13 +782,13 @@ fn test_st_int_004_timestamp_increasing() {
     let mut prev_ts: Option<String> = None;
 
     for (i, line) in lines.iter().enumerate() {
-        let v: serde_json::Value = serde_json::from_str(line).unwrap();
-        let ts = v["timestamp"].as_str().unwrap().to_string();
+        let v: serde_json::Value = serde_json::from_str(line).expect("JSON输出应该合法");
+        let ts = v["timestamp"].as_str().expect("timestamp 应为字符串").to_string();
         let parsed = chrono::DateTime::parse_from_rfc3339(&ts)
             .unwrap_or_else(|_| panic!("line {}: invalid timestamp: {}", i, ts));
 
         if let Some(ref prev) = prev_ts {
-            let prev_parsed = chrono::DateTime::parse_from_rfc3339(prev).unwrap();
+            let prev_parsed = chrono::DateTime::parse_from_rfc3339(prev).expect("前一个时间戳应可解析");
             assert!(
                 parsed > prev_parsed,
                 "line {} timestamp ({}) should be after previous ({})",

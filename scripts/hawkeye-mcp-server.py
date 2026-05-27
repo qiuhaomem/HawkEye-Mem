@@ -118,7 +118,7 @@ def handle_initialize(params: dict) -> dict:
         },
         "serverInfo": {
             "name": "hawk-eye-mem",
-            "version": "0.4.0"
+            "version": "0.5.0"
         }
     }
 
@@ -300,6 +300,25 @@ def handle_list_tools(params: dict) -> dict:
                         }
                     },
                     "required": ["model_name", "hit_count", "miss_count"]
+                }
+            },
+            # ======== V0.5 Token审计工具 ========
+            {
+                "name": "run_token_audit",
+                "description": "运行Token审计，分析Hermes Agent的token消耗、来源分布、浪费检测。返回JSON格式审计报告。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "days": {
+                            "type": "integer",
+                            "description": "审计最近N天的数据（默认当天）"
+                        },
+                        "source": {
+                            "type": "string",
+                            "description": "按来源过滤（weixin/cron/api_server等）"
+                        }
+                    },
+                    "required": []
                 }
             },
         ]
@@ -491,6 +510,56 @@ def handle_call_tool(params: dict) -> dict:
             "received": True,
             "hit_rate_24h": hit_rate_24h,
         }, indent=2)}]}
+
+    # ======== V0.5 Token审计工具 ========
+
+    elif name == "run_token_audit":
+        # 调用Python脚本运行Token审计
+        import sys
+        script_path = os.path.join(os.path.dirname(__file__), "token_audit")
+        if not os.path.exists(script_path):
+            return {"content": [{"type": "text", "text": json.dumps({
+                "error": "Token audit script not found",
+                "path": script_path
+            })}], "isError": True}
+
+        args = [sys.executable, "-m", "scripts.token_audit", "--token-audit", "--json"]
+        days = arguments.get("days")
+        if days is not None:
+            args.extend(["--days", str(days)])
+        source = arguments.get("source")
+        if source:
+            args.extend(["--source", source])
+
+        try:
+            result = subprocess.run(
+                args,
+                capture_output=True,
+                timeout=30,
+                cwd=os.path.dirname(__file__)
+            )
+            if result.returncode != 0:
+                return {"content": [{"type": "text", "text": json.dumps({
+                    "error": result.stderr.decode().strip() or f"exit code: {result.returncode}"
+                })}], "isError": True}
+            output = result.stdout.decode().strip()
+            if not output:
+                return {"content": [{"type": "text", "text": json.dumps({
+                    "error": "empty output"
+                })}], "isError": True}
+            try:
+                data = json.loads(output)
+                return {"content": [{"type": "text", "text": json.dumps(data, indent=2)}]}
+            except json.JSONDecodeError:
+                return {"content": [{"type": "text", "text": output}]}
+        except subprocess.TimeoutExpired:
+            return {"content": [{"type": "text", "text": json.dumps({
+                "error": "Token audit timed out (30s)"
+            })}], "isError": True}
+        except Exception as e:
+            return {"content": [{"type": "text", "text": json.dumps({
+                "error": str(e)
+            })}], "isError": True}
 
     else:
         return {

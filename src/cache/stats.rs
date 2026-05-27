@@ -34,32 +34,6 @@ impl CacheStatsStore {
         Self { path }
     }
 
-    /// Append a cache hit report to the JSONL file (CR-02: fire-and-forget)
-    pub fn append(&self, report: &CacheHitReport) -> Result<(), String> {
-        if let Ok(json) = serde_json::to_string(report) {
-            // CR-09: single record max 1KB
-            if json.len() > 1024 {
-                return Err("Record exceeds 1KB limit".to_string());
-            }
-            // CR-09: check total file size
-            if let Ok(meta) = std::fs::metadata(&self.path) {
-                if meta.len() > 10 * 1024 * 1024 {
-                    eprintln!("[hawk-eye-mem] cache_stats.jsonl exceeds 10MB, stopping接收");
-                    return Err("File exceeds 10MB limit".to_string());
-                }
-            }
-            use std::io::Write;
-            if let Ok(mut f) = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(&self.path)
-            {
-                let _ = writeln!(f, "{}", json);
-            }
-        }
-        Ok(())
-    }
-
     /// Read reports since cutoff (timestamp comparison, ISO format)
     pub fn read_since(&self, cutoff: &str) -> Result<Vec<CacheHitReport>, String> {
         let content = match std::fs::read_to_string(&self.path) {
@@ -100,11 +74,6 @@ pub struct CacheStatsCollector {
 impl CacheStatsCollector {
     pub fn new(store: CacheStatsStore) -> Self {
         Self { store }
-    }
-
-    /// Report cache hit data from Skill (CR-02: fire-and-forget, don't block)
-    pub fn report(&self, report: CacheHitReport) {
-        let _ = self.store.append(&report);
     }
 
     /// Calculate 24-hour hit rate

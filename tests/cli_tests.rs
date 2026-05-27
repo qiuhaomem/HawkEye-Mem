@@ -124,13 +124,13 @@ fn test_it_cli_007_config_load() {
         &config_path,
         b"[model]\nbytes_per_token = 4000\nmargin = 15.0",
     )
-    .unwrap();
+    .expect("应该能创建临时配置文件");
 
-    let (stdout, _, code) = run_bin(&["--config", config_path.to_str().unwrap(), "--json"]);
+    let (stdout, _, code) = run_bin(&["--config", config_path.to_str().expect("临时路径应合法"), "--json"]);
     let _ = std::fs::remove_dir_all(&dir);
     assert_eq!(code, 0);
 
-    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&stdout).expect("JSON输出应该合法");
     let confidence = v["agent_guidance"]["confidence"].as_str().unwrap_or("");
     assert_eq!(
         confidence, "calibrated",
@@ -148,15 +148,15 @@ fn test_it_cli_008_env_config() {
         &config_path,
         b"[model]\nbytes_per_token = 3000\nmargin = 10.0",
     )
-    .unwrap();
+    .expect("应该能创建临时配置文件");
 
-    std::env::set_var("HAWKEYE_MEM_CONFIG", config_path.to_str().unwrap());
+    std::env::set_var("HAWKEYE_MEM_CONFIG", config_path.to_str().expect("临时路径应合法"));
     let (stdout, _, code) = run_bin(&["--json"]);
     std::env::remove_var("HAWKEYE_MEM_CONFIG");
     let _ = std::fs::remove_dir_all(&dir);
     assert_eq!(code, 0);
 
-    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&stdout).expect("JSON输出应该合法");
     let confidence = v["agent_guidance"]["confidence"].as_str().unwrap_or("");
     assert_eq!(
         confidence, "calibrated",
@@ -229,7 +229,7 @@ fn test_it_cli_011_metric_json_mutex() {
 fn test_it_json_001_timestamp_rfc3339() {
     let (stdout, _, code) = run_bin(&["--json"]);
     assert_eq!(code, 0);
-    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&stdout).expect("JSON输出应该合法");
     let ts = v["timestamp"]
         .as_str()
         .expect("timestamp should be a string");
@@ -247,7 +247,7 @@ fn test_it_json_001_timestamp_rfc3339() {
 fn test_it_json_002_collection_duration() {
     let (stdout, _, code) = run_bin(&["--json"]);
     assert_eq!(code, 0);
-    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&stdout).expect("JSON输出应该合法");
     let dur = v["collection_duration_ms"]
         .as_f64()
         .expect("collection_duration_ms should be a number");
@@ -260,8 +260,8 @@ fn test_it_json_002_collection_duration() {
 fn test_it_json_003_used_percent_precision() {
     let (stdout, _, code) = run_bin(&["--json"]);
     assert_eq!(code, 0);
-    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let percent = v["system"]["used_percent"].as_f64().unwrap();
+    let v: serde_json::Value = serde_json::from_str(&stdout).expect("JSON输出应该合法");
+    let percent = v["system"]["used_percent"].as_f64().expect("used_percent 应为数字");
     let formatted = format!("{:.1}", percent);
     // 验证只有1位小数
     let parts: Vec<&str> = formatted.split('.').collect();
@@ -274,7 +274,7 @@ fn test_it_json_003_used_percent_precision() {
 fn test_it_json_004_estimated_window_int() {
     let (stdout, _, code) = run_bin(&["--json"]);
     assert_eq!(code, 0);
-    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&stdout).expect("JSON输出应该合法");
     let window = &v["agent_guidance"]["estimated_safe_context_window"];
     assert!(
         window.is_i64() || window.is_u64(),
@@ -287,7 +287,7 @@ fn test_it_json_004_estimated_window_int() {
 fn test_it_json_005_schema_fields_exist() {
     let (stdout, _, code) = run_bin(&["--json"]);
     assert_eq!(code, 0);
-    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&stdout).expect("JSON输出应该合法");
 
     // 验证system字段
     let sys = v.get("system").expect("'system' field must exist");
@@ -365,7 +365,7 @@ fn test_it_cli_012_config_permission_error() {
 fn test_it_int_001_config_lifecycle() {
     // Step 1: 无配置时运行
     let (stdout1, _, _) = run_bin(&["--json"]);
-    let v1: serde_json::Value = serde_json::from_str(&stdout1).unwrap();
+    let v1: serde_json::Value = serde_json::from_str(&stdout1).expect("JSON输出应该合法");
     let conf1 = v1["agent_guidance"]["confidence"]
         .as_str()
         .unwrap_or("")
@@ -379,11 +379,11 @@ fn test_it_int_001_config_lifecycle() {
         &config_path,
         b"[model]\nbytes_per_token = 4000\nmargin = 20.0",
     )
-    .unwrap();
+    .expect("应该能创建临时配置文件");
 
-    let (stdout2, _, _) = run_bin(&["--config", config_path.to_str().unwrap(), "--json"]);
+    let (stdout2, _, _) = run_bin(&["--config", config_path.to_str().expect("临时路径应合法"), "--json"]);
     let _ = std::fs::remove_dir_all(&dir);
-    let v2: serde_json::Value = serde_json::from_str(&stdout2).unwrap();
+    let v2: serde_json::Value = serde_json::from_str(&stdout2).expect("JSON输出应该合法");
     let conf2 = v2["agent_guidance"]["confidence"]
         .as_str()
         .unwrap_or("")
@@ -408,7 +408,7 @@ fn test_it_first_onboarding_full() {
     let _ = std::fs::remove_dir_all(&tmp_home);
     let _ = std::fs::create_dir_all(&tmp_home);
     let old_home = std::env::var("HOME").ok();
-    std::env::set_var("HOME", tmp_home.to_str().unwrap());
+    std::env::set_var("HOME", tmp_home.to_str().expect("临时HOME路径应合法"));
 
     // === IT-FIRST-001: 免责声明内容验证 ===
     let (_, stderr, code) = run_bin(&[]);
@@ -434,7 +434,7 @@ fn test_it_first_onboarding_full() {
         "Both 'No warranty' and 'Quick Start' must be in stderr"
     );
     assert!(
-        no_warranty.unwrap() < quick_start.unwrap(),
+        no_warranty.expect("no_warranty 应有值") < quick_start.expect("quick_start 应有值"),
         "Disclaimer must appear before Quick Start guide"
     );
 
@@ -476,7 +476,7 @@ fn test_it_cal_001_json_with_tokens_processed() {
         v.get("_calibration").is_some(),
         "JSON should contain '_calibration' key when --tokens-processed is provided"
     );
-    let cal = v["_calibration"].as_object().unwrap();
+    let cal = v["_calibration"].as_object().expect("_calibration 应为对象");
     assert_eq!(
         cal["tokens_processed"], 4096,
         "tokens_processed should match"

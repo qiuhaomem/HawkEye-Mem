@@ -12,6 +12,8 @@ mod remote;
 mod state_machine;
 mod suggest;
 mod thermal;
+mod helpers;
+mod commands;
 mod trends;
 
 use calibration::algorithm::CalibrationEngine;
@@ -42,7 +44,7 @@ margin = 30.0
     version = "0.5.0",
     about = "AI-Native memory monitoring"
 )]
-struct Cli {
+pub struct Cli {
     // === 原有参数 ===
     #[arg(long, conflicts_with = "metric")]
     json: bool,
@@ -165,16 +167,7 @@ fn main() {
 
     // === --serve：远程采集 HTTP 服务端模式 ===
     if cli.serve {
-        let api_key = config::AppConfig::load(None)
-            .ok()
-            .flatten()
-            .and_then(|c| c.remote)
-            .and_then(|r| r.api_key);
-        let server = remote::RemoteServer::new(cli.port, api_key);
-        server.start().unwrap_or_else(|e| {
-            eprintln!("Failed to start server: {}", e);
-            std::process::exit(1);
-        });
+        commands::system::handle_serve(&cli);
         return;
     }
 
@@ -209,316 +202,27 @@ fn main() {
         std::process::exit(0);
     }
 
-    // === --list-models：打印模型表格 ===
-    if cli.list_models {
-        print_model_table();
-        return;
-    }
+    // === 各命令模块调度 ===
+    if cli.list_models { commands::model::handle_list_models(); return; }
+    if cli.cache_strategy { commands::cache::handle_cache_strategy(&cli); return; }
+    if cli.cache_stats { commands::cache::handle_cache_stats(); return; }
+    if cli.reset_cache_stats { commands::cache::handle_reset_cache_stats(); return; }
+    if cli.model_compat.is_some() { commands::cache::handle_model_compat(cli.model_compat.as_deref()); return; }
+    if cli.can_run { commands::model::handle_can_run(&cli); return; }
+    if cli.calibration_stats { commands::model::handle_calibration_stats(&cli); return; }
+    if cli.reset_calibration { commands::model::handle_reset_calibration(&cli); return; }
+    if cli.gpu_list { commands::system::handle_gpu_list(); return; }
+    if cli.alert { commands::system::handle_alert_mode(&cli); return; }
+    if cli.suggest_concurrency { commands::system::handle_suggest_concurrency(&cli); return; }
 
-    // === V0.5 --cache-strategy：输出缓存策略 ===
-    if cli.cache_strategy {
-        let registry = collector::registry::CollectorRegistry::new();
-        let snapshot = registry.collect_all();
-        if let Some(ref mem) = snapshot.memory {
-            let pressure = cache::MemoryPressure::from(mem);
-            let strategy = cache::CacheAdvisor::recommend(&pressure);
-            if cli.json {
-                println!("{}", serde_json::to_string_pretty(&strategy).unwrap());
-            } else {
-                println!("📊 缓存策略: {}", strategy.mode);
-                println!("   TTL: {}s", strategy.ttl_seconds);
-                println!("   最大缓存: {}MB", strategy.max_cache_mb);
-                println!("   预取: {}", if strategy.prefetch_enabled { "✅" } else { "❌" });
-                println!("   原因: {}", strategy.reason);
-                println!("   协议版本: v{}", strategy.protocol_version);
-            }
-        } else {
-            eprintln!("无法获取内存信息");
-        }
-        return;
-    }
-
-    // === V0.5 --cache-stats：输出24小时缓存命中统计 ===
-    if cli.cache_stats {
-        let stats_path = dirs_next::home_dir()
-            .unwrap_or_else(|| PathBuf::from("/tmp"))
-            .join(".config/hawk-eye-mem/cache_stats.jsonl");
-        let store = cache::CacheStatsStore::new(stats_path);
-        let collector = cache::CacheStatsCollector::new(store);
-        let stats = collector.stats_24h();
-        println!("{}", serde_json::to_string_pretty(&stats).unwrap());
-        return;
-    }
-
-    // === V0.5 --reset-cache-stats：清空缓存统计数据 ===
-    if cli.reset_cache_stats {
-        let stats_path = dirs_next::home_dir()
-            .unwrap_or_else(|| PathBuf::from("/tmp"))
-            .join(".config/hawk-eye-mem/cache_stats.jsonl");
-        match std::fs::write(&stats_path, "") {
-            Ok(_) => {
-                println!("Cache stats have been reset.");
-            }
-            Err(e) => {
-                eprintln!("Failed to reset cache stats: {}", e);
-                std::process::exit(1);
-            }
-        }
-        return;
-    }
-
-    // === V0.5 --model-compat：查看模型缓存兼容性 ===
-    if cli.model_compat.is_some() {
-        let result = check_model_compatibility(cli.model_compat.as_deref());
-        println!("{}", serde_json::to_string_pretty(&result).unwrap());
-        return;
-    }
-
-    // === --can-run：部署评估模式 ===
-    if cli.can_run {
-        handle_can_run(&cli);
-        return;
-    }
-
-    // === V0.3 校准相关参数处理 ===
-    let cal_base_path = || -> PathBuf {
-        dirs_next::home_dir()
-            .unwrap_or_else(|| PathBuf::from("/tmp"))
-            .join(".config/hawk-eye-mem")
-    };
-
-    // --calibration-stats：查看校准统计
-    if cli.calibration_stats {
-        if let Some(ref model) = cli.model_name {
-            let path = cal_base_path();
-            let store = calibration::csv_store::CsvStore::new(path.join("calibration"), 100);
-            let engine = calibration::algorithm::CalibrationEngine::new(store);
-            let stats = engine.stats(model).unwrap_or_else(|e| {
-                eprintln!("Failed to get calibration stats: {}", e);
-                std::process::exit(1);
-            });
-            let params = engine.get_corrected_params(model).unwrap_or(None);
-
-            println!("校准状态 — 模型: \"{}\"", model);
-            println!("─────────────────────────────────────────");
-            println!("{}", stats.stage);
-            if let Some(ref p) = params {
-                println!("加权平均:  {} bytes/token", p.avg_bytes_per_token);
-                println!("标准差:    {}", p.calibration.std_dev);
-                println!("趋势:      {}", p.calibration.trend);
-                println!("安全边际:  {}%", p.safety_margin);
-                println!("置信度:    {:?}", p.confidence);
-            } else if stats.sample_count > 0 {
-                println!(
-                    "样本不足:  还需 {} 次才能启动校准算法",
-                    10 - stats.sample_count.min(10)
-                );
-            }
-        }
-        return;
-    }
-
-    // --reset-calibration：清空校准数据
-    if cli.reset_calibration {
-        if let Some(ref model) = cli.model_name {
-            let path = cal_base_path();
-            let store = calibration::csv_store::CsvStore::new(path.join("calibration"), 100);
-            let model_hash = calibration::hash_model_name(model).unwrap_or_else(|e| {
-                eprintln!("Failed to hash model name: {}", e);
-                std::process::exit(1);
-            });
-            store.clear_model(&model_hash).unwrap_or_else(|e| {
-                eprintln!("Failed to clear calibration data: {}", e);
-                std::process::exit(1);
-            });
-            println!("已清空模型 \"{}\" 的校准数据", model);
-        }
-        return;
-    }
-
-    // --gpu-list：列出检测到的 GPU 及其采集后端
-    if cli.gpu_list {
-        use collector::ResourceCollector;
-        let gpu_collector = gpu::GpuCollector;
-        match gpu_collector.collect() {
-            Ok(collector::CollectorOutput::Gpu(gpus)) => {
-                println!("\n  GPU List:");
-                println!("  {:-<60}", "");
-                for gpu in &gpus {
-                    println!(
-                        "  {:<30} | {}MB/{}MB | {}",
-                        gpu.name, gpu.vram_used_mb, gpu.vram_total_mb, gpu.backend
-                    );
-                }
-                println!();
-            }
-            Err(e) => {
-                eprintln!("  No GPU detected: {}", e);
-            }
-            _ => {
-                eprintln!("  Unexpected output from GPU collector");
-            }
-        }
-        return;
-    }
-
-    if cli.alert {
-        handle_alert_mode(&cli);
-        return;
-    }
-
-    // === REQ-001: --suggest-concurrency 物理AI ===
-    if cli.suggest_concurrency {
-        let mut registry = CollectorRegistry::new();
-        if let Ok(Some(cfg)) = config::AppConfig::load(cli.config.as_deref()) {
-            if let Some(dirs) = cfg.directories {
-                registry.set_directories(dirs.model_cache);
-            }
-        }
-        let snapshot = registry.collect_all();
-        let result = suggest::suggest_concurrency(&snapshot, cli.task_memory);
-        println!("{}", serde_json::to_string_pretty(&result).unwrap());
-        return;
-    }
-
-    // === V0.4 W1-W2: 环境指纹处理 ===
+    // === 环境指纹（需要 fingerprint_store 供后续使用）===
     let fingerprint_store = environment::store::FingerprintStore::new();
-
-    // --env-fingerprint：输出当前指纹
-    if cli.env_fingerprint {
-        match fingerprint_store.load_current() {
-            Ok(Some(fp)) => {
-                println!("{}", serde_json::to_string_pretty(&fp).unwrap());
-            }
-            Ok(None) => {
-                eprintln!("No environment fingerprint found. Run 'hawk-eye-mem' without --env-fingerprint to generate one.");
-                std::process::exit(0);
-            }
-            Err(e) => {
-                eprintln!("Failed to read environment fingerprint: {}", e);
-                std::process::exit(1);
-            }
-        }
-        return;
-    }
-
-    // --reset-environment：重置（需要 --force 跳过确认）
-    if cli.reset_environment {
-        if !cli.force {
-            eprint!(
-                "Reset environment fingerprint? This will remove all stored fingerprints. [y/N]: "
-            );
-            use std::io::Write;
-            std::io::stdout().flush().ok();
-            let mut input = String::new();
-            std::io::stdin().read_line(&mut input).ok();
-            if input.trim().to_lowercase() != "y" {
-                eprintln!("Cancelled.");
-                std::process::exit(0);
-            }
-        }
-        match fingerprint_store.reset() {
-            Ok(_) => {
-                println!("Environment fingerprint has been reset.");
-            }
-            Err(e) => {
-                eprintln!("Failed to reset environment fingerprint: {}", e);
-                std::process::exit(1);
-            }
-        }
-        return;
-    }
-
-    // === V0.4 W2 CR-06: --alert 告警模式 ===
-    if cli.alert {
-        handle_alert_mode(&cli);
-        return;
-    }
-
-    // === V0.4 趋势分析参数处理 ===
-
-    // --clear-history：清空历史记录
-    if cli.clear_history {
-        let retention_days = load_history_retention(&cli).unwrap_or(30);
-        let store = HistoryStore::new(retention_days);
-        match store.clear() {
-            Ok(_) => {
-                println!("History data cleared.");
-            }
-            Err(e) => {
-                eprintln!("Failed to clear history: {}", e);
-                std::process::exit(1);
-            }
-        }
-        return;
-    }
-
-    // --trend：输出趋势分析报告
-    if cli.trend {
-        let retention_days = load_history_retention(&cli).unwrap_or(30);
-        let store = HistoryStore::new(retention_days);
-        let points = match store.read_all() {
-            Ok(p) => p,
-            Err(e) => {
-                eprintln!("Failed to read history: {}", e);
-                std::process::exit(1);
-            }
-        };
-
-        match TrendAnalyzer::analyze(&points) {
-            Some(report) => {
-                println!("{}", serde_json::to_string_pretty(&report).unwrap());
-            }
-            None => {
-                eprintln!(
-                    "Insufficient data for trend analysis (need >= 10 points, found {})",
-                    points.len()
-                );
-                std::process::exit(0);
-            }
-        }
-        return;
-    }
-
-    // === V0.4.1: --record 采集并记录趋势数据 ===
-    if cli.record {
-        let mut registry = CollectorRegistry::new();
-        if let Ok(Some(cfg)) = config::AppConfig::load(cli.config.as_deref()) {
-            if let Some(dirs) = cfg.directories {
-                registry.set_directories(dirs.model_cache);
-            }
-        }
-        let snapshot = registry.collect_all();
-        let memory = snapshot.memory.as_ref()
-            .expect("Memory collector must succeed");
-        let cpu = snapshot.cpu.as_ref()
-            .map(|c| c.load_avg_1m)
-            .unwrap_or(0.0);
-        let disk = snapshot.disk.as_ref()
-            .map(|d| d.available_mb)
-            .unwrap_or(0);
-        let pressure_str = memory.pressure.to_string();
-        let point = trends::HistoryPoint {
-            timestamp: snapshot.timestamp.clone(),
-            memory_available_mb: memory.available_mb,
-            memory_pressure: pressure_str,
-            cpu_load: cpu,
-            disk_available_mb: disk,
-            tokens_processed: cli.tokens_processed,
-        };
-        let store = HistoryStore::new(30);
-        match store.record(&point) {
-            Ok(_) => {
-                let points = store.read_all().unwrap_or_default();
-                println!("✓ Recorded system state to history ({} points total)", points.len());
-            }
-            Err(e) => {
-                eprintln!("Failed to record history: {}", e);
-                std::process::exit(1);
-            }
-        }
-        return;
-    }
+    if cli.env_fingerprint { commands::system::handle_env_fingerprint(&cli); return; }
+    if cli.reset_environment { commands::system::handle_reset_environment(&cli, &fingerprint_store); return; }
+    if cli.alert { commands::system::handle_alert_mode(&cli); return; }
+    if cli.clear_history { commands::system::handle_clear_history(&cli); return; }
+    if cli.trend { commands::system::handle_trend(&cli); return; }
+    if cli.record { commands::system::handle_record(&cli); return; }
 
     // === V0.3 校准引擎初始化 ===
     let calibration_path = get_calibration_path();
@@ -694,7 +398,7 @@ fn main() {
                 last_sm_action,
                 &environment_change_report,
             );
-            println!("{}", serde_json::to_string_pretty(&output).unwrap());
+            helpers::print_json(&output);
         }
 
         // 保存当前快照作为下一次的前一次快照
@@ -755,7 +459,7 @@ fn handle_can_run(cli: &Cli) {
         context_window: cli.context,
     };
     let assessment = AssessmentEngine::assess(&req, &snapshot);
-    println!("{}", serde_json::to_string_pretty(&assessment).unwrap());
+    helpers::print_json(&assessment);
 }
 
 /// 在比较结果中找到推荐项
@@ -801,7 +505,7 @@ fn print_compare_output(
             "comparison": results,
             "recommended_index": recommended_idx,
         });
-        println!("{}", serde_json::to_string_pretty(&compare_result).unwrap());
+        helpers::print_json(&compare_result);
         return;
     }
 
@@ -1021,7 +725,7 @@ fn print_quick_guide() {
 }
 
 /// 从配置中读取 history.retention_days（默认 30）
-fn load_history_retention(cli: &Cli) -> Option<u64> {
+pub fn load_history_retention(cli: &Cli) -> Option<u64> {
     match config::AppConfig::load(cli.config.as_deref()) {
         Ok(Some(cfg)) => cfg.history.and_then(|h| h.retention_days),
         _ => None,
@@ -1327,7 +1031,7 @@ fn parse_model_spec(spec: &str) -> (String, String) {
 /// If `model_spec` is Some("model@provider"), checks that specific model.
 /// If `model_spec` is Some("model") without @, tries to find the model in all providers.
 /// If `model_spec` is None, lists all providers.
-fn check_model_compatibility(model_spec: Option<&str>) -> Value {
+pub fn check_model_compatibility(model_spec: Option<&str>) -> Value {
     // Read the provider_cache_compat.json
     let compat_path = dirs_next::home_dir()
         .unwrap_or_else(|| PathBuf::from("/tmp"))

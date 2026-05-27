@@ -6,45 +6,26 @@ use std::path::PathBuf;
 pub struct AppConfig {
     pub model: Option<ModelConfigSection>,
     pub directories: Option<DirectoriesConfig>,
-    #[allow(dead_code)]
     pub gpu: Option<GpuConfig>,
-    #[allow(dead_code)]
     pub calibration: Option<CalibrationConfig>,
-    #[allow(dead_code)]
     pub state_machine: Option<StateMachineConfig>,
-    #[allow(dead_code)]
     pub multi_agent: Option<MultiAgentConfig>,
-    #[allow(dead_code)]
     pub remote: Option<RemoteConfig>,
-    #[allow(dead_code)]
     pub history: Option<HistoryConfig>,
-    #[allow(dead_code)]
-    pub cache: Option<CacheConfig>,
 }
 
 #[derive(Debug, Deserialize)]
-#[allow(dead_code)]
-pub struct CacheConfig {
-    pub mode_override: Option<String>,
-    pub max_cache_mb_override: Option<u64>,
-    pub stats_retention_days: Option<u64>,
-}
-
-#[derive(Debug, Deserialize)]
-#[allow(dead_code)]
 pub struct RemoteConfig {
     pub api_key: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
-#[allow(dead_code)]
 pub struct HistoryConfig {
     pub retention_days: Option<u64>,
     pub auto_record: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
-#[allow(dead_code)]
 pub struct GpuConfig {
     pub rocm_smi_path: Option<String>,
 }
@@ -68,7 +49,6 @@ pub struct StateMachineConfig {
 }
 
 #[derive(Debug, Deserialize)]
-#[allow(dead_code)]
 pub struct MultiAgentConfig {
     pub enabled: Option<bool>,
     pub extra_process_names: Option<Vec<String>>,
@@ -77,7 +57,6 @@ pub struct MultiAgentConfig {
 }
 
 #[derive(Debug, Deserialize)]
-#[allow(dead_code)]
 pub struct DirectoriesConfig {
     pub model_cache: Option<String>,
     pub agent_process_names: Option<Vec<String>>,
