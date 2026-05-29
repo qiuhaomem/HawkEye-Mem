@@ -2,8 +2,8 @@
 // src/commands/system.rs — 系统命令（GPU/环境/趋势/报警/服务端）
 // ============================================================================
 
-use crate::collector::{self};
 use crate::collector::registry::CollectorRegistry;
+use crate::collector::{self};
 use crate::config;
 use crate::environment;
 use crate::gpu;
@@ -102,11 +102,12 @@ pub fn handle_env_fingerprint(_cli: &Cli) {
 // --reset-environment：重置环境指纹
 // ============================================================================
 
-pub fn handle_reset_environment(cli: &Cli, fingerprint_store: &environment::store::FingerprintStore) {
+pub fn handle_reset_environment(
+    cli: &Cli,
+    fingerprint_store: &environment::store::FingerprintStore,
+) {
     if !cli.force {
-        eprint!(
-            "Reset environment fingerprint? This will remove all stored fingerprints. [y/N]: "
-        );
+        eprint!("Reset environment fingerprint? This will remove all stored fingerprints. [y/N]: ");
         use std::io::Write;
         std::io::stdout().flush().ok();
         let mut input = String::new();
@@ -190,16 +191,8 @@ pub fn handle_record(cli: &Cli) {
         .memory
         .as_ref()
         .expect("Memory collector must succeed");
-    let cpu = snapshot
-        .cpu
-        .as_ref()
-        .map(|c| c.load_avg_1m)
-        .unwrap_or(0.0);
-    let disk = snapshot
-        .disk
-        .as_ref()
-        .map(|d| d.available_mb)
-        .unwrap_or(0);
+    let cpu = snapshot.cpu.as_ref().map(|c| c.load_avg_1m).unwrap_or(0.0);
+    let disk = snapshot.disk.as_ref().map(|d| d.available_mb).unwrap_or(0);
 
     let pressure_str = memory.pressure.to_string();
     let point = HistoryPoint {
@@ -257,4 +250,48 @@ pub fn handle_serve(cli: &Cli) {
         eprintln!("Failed to start server: {}", e);
         std::process::exit(1);
     });
+}
+
+// ============================================================================
+// --heartbeat：单行心跳 JSON
+// ============================================================================
+
+pub fn handle_heartbeat(cli: &Cli) {
+    let mut registry = CollectorRegistry::new();
+    if let Ok(Some(cfg)) = config::AppConfig::load(cli.config.as_deref()) {
+        if let Some(dirs) = cfg.directories {
+            registry.set_directories(dirs.model_cache);
+        }
+    }
+    let snapshot = registry.collect_all();
+    let metrics = snapshot
+        .memory
+        .as_ref()
+        .expect("Memory collector must succeed");
+
+    let pressure = match &metrics.pressure {
+        collector::PressureLevel::Low => "low",
+        collector::PressureLevel::Medium => "medium",
+        collector::PressureLevel::High => "high",
+        collector::PressureLevel::Critical => "critical",
+    };
+
+    let action = match &metrics.pressure {
+        collector::PressureLevel::Low => "ok",
+        collector::PressureLevel::Medium => "monitor",
+        collector::PressureLevel::High => "reduce_context",
+        collector::PressureLevel::Critical => "abort_safely",
+    };
+
+    let timestamp = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
+
+    let output = serde_json::json!({
+        "pressure": pressure,
+        "available_mb": metrics.available_mb,
+        "used_percent": metrics.used_percent,
+        "action": action,
+        "timestamp": timestamp,
+    });
+
+    println!("{}", serde_json::to_string(&output).unwrap());
 }

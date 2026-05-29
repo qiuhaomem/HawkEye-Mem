@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::collector::{MemoryMetrics, PressureLevel};
+use serde::{Deserialize, Serialize};
 
 /// Minimal memory pressure input for CacheAdvisor (CR-22).
 /// Only contains the fields needed for cache strategy decisions.
@@ -85,10 +85,7 @@ impl CacheAdvisor {
                 ttl_seconds: 0,
                 max_cache_mb: 0,
                 prefetch_enabled: false,
-                reason: format!(
-                    "内存危机（可用{:.1}%），立即清空缓存保命",
-                    available_pct
-                ),
+                reason: format!("内存危机（可用{:.1}%），立即清空缓存保命", available_pct),
                 protocol_version: super::CACHE_PROTOCOL_VERSION,
             },
             PressureLevel::High | _ if available_pct < 15.0 => CacheStrategy {
@@ -96,10 +93,7 @@ impl CacheAdvisor {
                 ttl_seconds: 60,
                 max_cache_mb: Self::calc_max_cache(pressure.available_mb, 0.05),
                 prefetch_enabled: false,
-                reason: format!(
-                    "内存压力high（可用{:.1}%），切换保守缓存",
-                    available_pct
-                ),
+                reason: format!("内存压力high（可用{:.1}%），切换保守缓存", available_pct),
                 protocol_version: super::CACHE_PROTOCOL_VERSION,
             },
             PressureLevel::Medium | _ if available_pct < 30.0 => CacheStrategy {
@@ -107,10 +101,7 @@ impl CacheAdvisor {
                 ttl_seconds: 300,
                 max_cache_mb: Self::calc_max_cache(pressure.available_mb, 0.10),
                 prefetch_enabled: true,
-                reason: format!(
-                    "内存压力medium（可用{:.1}%），保持平衡缓存",
-                    available_pct
-                ),
+                reason: format!("内存压力medium（可用{:.1}%），保持平衡缓存", available_pct),
                 protocol_version: super::CACHE_PROTOCOL_VERSION,
             },
             _ => CacheStrategy {
@@ -222,7 +213,10 @@ mod tests {
     fn test_ut_cache_009_reason_contains_value() {
         let p = mp(1966, 16384, PressureLevel::High);
         let strategy = CacheAdvisor::recommend(&p);
-        assert!(strategy.reason.contains("12.0"), "reason should contain '12.0'");
+        assert!(
+            strategy.reason.contains("12.0"),
+            "reason should contain '12.0'"
+        );
     }
 
     // UT-CACHE-011: 无内存数据时回退（所有压力都低）

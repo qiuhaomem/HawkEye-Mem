@@ -62,7 +62,10 @@ impl HistoryStore {
 
     /// 指定路径的存储（用于测试）
     pub fn with_path(path: PathBuf, retention_days: u64) -> Self {
-        Self { path, retention_days }
+        Self {
+            path,
+            retention_days,
+        }
     }
 
     /// 追加写入一个数据点（flock 保护）
@@ -76,11 +79,10 @@ impl HistoryStore {
         file.lock_exclusive()
             .map_err(|e| format!("Failed to lock history file: {}", e))?;
 
-        let line = serde_json::to_string(point)
-            .map_err(|e| format!("Failed to serialize: {}", e))?;
+        let line =
+            serde_json::to_string(point).map_err(|e| format!("Failed to serialize: {}", e))?;
 
-        writeln!(&file, "{}", line)
-            .map_err(|e| format!("Failed to write: {}", e))?;
+        writeln!(&file, "{}", line).map_err(|e| format!("Failed to write: {}", e))?;
 
         file.unlock()
             .map_err(|e| format!("Failed to unlock: {}", e))?;
@@ -94,8 +96,8 @@ impl HistoryStore {
             return Ok(Vec::new());
         }
 
-        let file = File::open(&self.path)
-            .map_err(|e| format!("Failed to open history file: {}", e))?;
+        let file =
+            File::open(&self.path).map_err(|e| format!("Failed to open history file: {}", e))?;
 
         file.lock_shared()
             .map_err(|e| format!("Failed to lock history file: {}", e))?;
@@ -176,8 +178,7 @@ impl HistoryStore {
         file.seek(SeekFrom::Start(0))
             .map_err(|e| format!("Failed to seek: {}", e))?;
         for line in &kept_lines {
-            writeln!(&file, "{}", line)
-                .map_err(|e| format!("Failed to write: {}", e))?;
+            writeln!(&file, "{}", line).map_err(|e| format!("Failed to write: {}", e))?;
         }
 
         file.unlock()
@@ -296,7 +297,10 @@ impl TrendAnalyzer {
 
         // 到达临界的天数（仅下降趋势）
         let days_until_critical = if slope < 0.0 {
-            let current_mb = sorted.last().map(|p| p.memory_available_mb as f64).unwrap_or(0.0);
+            let current_mb = sorted
+                .last()
+                .map(|p| p.memory_available_mb as f64)
+                .unwrap_or(0.0);
             let abs_slope = slope.abs();
             if abs_slope > 0.0 && current_mb > 0.0 {
                 let minutes_until = current_mb / abs_slope;
@@ -331,7 +335,10 @@ impl TrendAnalyzer {
         .to_string();
 
         // 紧急程度 (CR-05): 基于斜率 + 当前可用内存
-        let current_mb = sorted.last().map(|p| p.memory_available_mb as f64).unwrap_or(0.0);
+        let current_mb = sorted
+            .last()
+            .map(|p| p.memory_available_mb as f64)
+            .unwrap_or(0.0);
         let urgency = if slope < -5.0 && current_mb < 500.0 {
             "critical"
         } else if slope < -2.0 && current_mb < 1000.0 {
@@ -499,7 +506,10 @@ mod tests {
         let report = TrendAnalyzer::analyze(&points).unwrap();
         let json = serde_json::to_value(&report).unwrap();
         let obj = json.as_object().unwrap();
-        assert!(!obj.contains_key("raw_points"), "should not contain raw data");
+        assert!(
+            !obj.contains_key("raw_points"),
+            "should not contain raw data"
+        );
         assert!(!obj.contains_key("data"), "should not contain data field");
     }
 

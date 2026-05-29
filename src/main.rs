@@ -1,19 +1,19 @@
 mod cache;
 mod calibration;
 mod collector;
+mod commands;
 mod config;
 mod container;
 mod engine;
 mod environment;
 mod gpu;
+mod helpers;
 mod models;
 mod multi_agent;
 mod remote;
 mod state_machine;
 mod suggest;
 mod thermal;
-mod helpers;
-mod commands;
 mod trends;
 
 use calibration::algorithm::CalibrationEngine;
@@ -24,9 +24,9 @@ use collector::registry::CollectorRegistry;
 use engine::assessment::{AssessmentEngine, DeploymentRequest};
 use state_machine::{StateMachine, StateMachineConfig, StateTransition};
 use std::path::PathBuf;
-use trends::{HistoryStore, TrendAnalyzer};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use trends::{HistoryStore, TrendAnalyzer};
 
 const DEFAULT_CONFIG_CONTENT: &str = r#"[model]
 # Bytes per token for your model (default: 2048)
@@ -160,6 +160,29 @@ pub struct Cli {
     /// 查看模型缓存兼容性（可选参数：model@provider，不传则列出所有Provider）
     #[arg(long = "model-compat", num_args = 0..=1, default_missing_value = "")]
     model_compat: Option<String>,
+
+    // === V0.6 缓存差距分析 ===
+    /// 分析缓存命中率差距，输出缺口分类+修复建议
+    #[arg(long)]
+    analyze_cache_gaps: bool,
+
+    /// 分析天数（默认 7 天），配合 --analyze-cache-gaps 使用
+    #[arg(long, default_value = "7")]
+    days: u32,
+
+    /// 目标命中率（默认 99.0%），配合 --analyze-cache-gaps 使用
+    #[arg(long, default_value = "99.0")]
+    target: f64,
+
+    // === V0.6 Token审计增强 ===
+    /// 按来源过滤（weixin/cron/api_server），配合 --token-audit 使用
+    #[arg(long)]
+    source: Option<String>,
+
+    // === V0.6 心跳模式 ===
+    /// 输出单行心跳 JSON（pressure/available_mb/action/timestamp）
+    #[arg(long)]
+    heartbeat: bool,
 }
 
 fn main() {
@@ -203,26 +226,85 @@ fn main() {
     }
 
     // === 各命令模块调度 ===
-    if cli.list_models { commands::model::handle_list_models(); return; }
-    if cli.cache_strategy { commands::cache::handle_cache_strategy(&cli); return; }
-    if cli.cache_stats { commands::cache::handle_cache_stats(); return; }
-    if cli.reset_cache_stats { commands::cache::handle_reset_cache_stats(); return; }
-    if cli.model_compat.is_some() { commands::cache::handle_model_compat(cli.model_compat.as_deref()); return; }
-    if cli.can_run { commands::model::handle_can_run(&cli); return; }
-    if cli.calibration_stats { commands::model::handle_calibration_stats(&cli); return; }
-    if cli.reset_calibration { commands::model::handle_reset_calibration(&cli); return; }
-    if cli.gpu_list { commands::system::handle_gpu_list(); return; }
-    if cli.alert { commands::system::handle_alert_mode(&cli); return; }
-    if cli.suggest_concurrency { commands::system::handle_suggest_concurrency(&cli); return; }
+    if cli.list_models {
+        commands::model::handle_list_models();
+        return;
+    }
+    if cli.cache_strategy {
+        commands::cache::handle_cache_strategy(&cli);
+        return;
+    }
+    if cli.cache_stats {
+        commands::cache::handle_cache_stats();
+        return;
+    }
+    if cli.reset_cache_stats {
+        commands::cache::handle_reset_cache_stats();
+        return;
+    }
+    if cli.model_compat.is_some() {
+        commands::cache::handle_model_compat(cli.model_compat.as_deref());
+        return;
+    }
+    if cli.analyze_cache_gaps {
+        commands::cache::handle_analyze_cache_gaps(&cli);
+        return;
+    }
+    if cli.heartbeat {
+        commands::system::handle_heartbeat(&cli);
+        return;
+    }
+    if cli.can_run {
+        commands::model::handle_can_run(&cli);
+        return;
+    }
+    if cli.calibration_stats {
+        commands::model::handle_calibration_stats(&cli);
+        return;
+    }
+    if cli.reset_calibration {
+        commands::model::handle_reset_calibration(&cli);
+        return;
+    }
+    if cli.gpu_list {
+        commands::system::handle_gpu_list();
+        return;
+    }
+    if cli.alert {
+        commands::system::handle_alert_mode(&cli);
+        return;
+    }
+    if cli.suggest_concurrency {
+        commands::system::handle_suggest_concurrency(&cli);
+        return;
+    }
 
     // === 环境指纹（需要 fingerprint_store 供后续使用）===
     let fingerprint_store = environment::store::FingerprintStore::new();
-    if cli.env_fingerprint { commands::system::handle_env_fingerprint(&cli); return; }
-    if cli.reset_environment { commands::system::handle_reset_environment(&cli, &fingerprint_store); return; }
-    if cli.alert { commands::system::handle_alert_mode(&cli); return; }
-    if cli.clear_history { commands::system::handle_clear_history(&cli); return; }
-    if cli.trend { commands::system::handle_trend(&cli); return; }
-    if cli.record { commands::system::handle_record(&cli); return; }
+    if cli.env_fingerprint {
+        commands::system::handle_env_fingerprint(&cli);
+        return;
+    }
+    if cli.reset_environment {
+        commands::system::handle_reset_environment(&cli, &fingerprint_store);
+        return;
+    }
+    if cli.alert {
+        commands::system::handle_alert_mode(&cli);
+        return;
+    }
+    if cli.clear_history {
+        commands::system::handle_clear_history(&cli);
+        return;
+    }
+    if cli.trend {
+        commands::system::handle_trend(&cli);
+        return;
+    }
+    if cli.record {
+        commands::system::handle_record(&cli);
+        return;
+    }
 
     // === V0.3 校准引擎初始化 ===
     let calibration_path = get_calibration_path();
@@ -1136,9 +1218,10 @@ pub fn check_model_compatibility(model_spec: Option<&str>) -> Value {
         let mut found = Vec::new();
         for (prov_name, info) in providers {
             if let Some(models) = info.get("models").and_then(|v| v.as_array()) {
-                if models.iter().any(|m| {
-                    m.as_str().map_or(false, |m_name| m_name == model_name)
-                }) || models.iter().any(|m| m.as_str() == Some("*"))
+                if models
+                    .iter()
+                    .any(|m| m.as_str().map_or(false, |m_name| m_name == model_name))
+                    || models.iter().any(|m| m.as_str() == Some("*"))
                 {
                     let supports_prompt_caching = info
                         .get("supports_prompt_caching")
@@ -1198,10 +1281,7 @@ pub fn check_model_compatibility(model_spec: Option<&str>) -> Value {
             model_name, provider_from_spec
         ))
     } else if !supports_prompt_caching {
-        Some(format!(
-            "{} 不支持 prompt caching",
-            provider_from_spec
-        ))
+        Some(format!("{} 不支持 prompt caching", provider_from_spec))
     } else {
         None
     };

@@ -324,18 +324,12 @@ mod tests {
         let json = serde_json::to_value(&detection).unwrap();
         assert_eq!(json["count"], 2);
         assert_eq!(json["total_agent_memory_mb"], 768);
-        assert_eq!(
-            json["total_agent_cpu_percent"].as_f64().unwrap(),
-            4.0
-        );
+        assert_eq!(json["total_agent_cpu_percent"].as_f64().unwrap(), 4.0);
         assert_eq!(json["agents"].as_array().unwrap().len(), 2);
         assert_eq!(json["agents"][0]["name"], "hermes");
         assert_eq!(json["agents"][0]["pid"], 12345);
         assert_eq!(json["agents"][0]["memory_rss_mb"], 256);
-        assert_eq!(
-            json["agents"][0]["cpu_percent"].as_f64().unwrap(),
-            2.5
-        );
+        assert_eq!(json["agents"][0]["cpu_percent"].as_f64().unwrap(), 2.5);
     }
 
     // UT-MAV-003: 每个 Agent 包含完整资源详情
@@ -380,10 +374,7 @@ mod tests {
         };
         let json = serde_json::to_value(&detection).unwrap();
         assert_eq!(json["total_agent_memory_mb"], 300);
-        assert_eq!(
-            json["total_agent_cpu_percent"].as_f64().unwrap(),
-            3.0
-        );
+        assert_eq!(json["total_agent_cpu_percent"].as_f64().unwrap(), 3.0);
     }
 
     // UT-MAV-008: 无 Agent 运行时 total_agent_memory_mb 为 null（skip）
@@ -401,14 +392,14 @@ mod tests {
         assert_eq!(json["count"], 0);
         // total_agent_memory_mb 应为 null（被 skip_serializing_if 隐藏）
         assert!(
-            !json.as_object().unwrap().contains_key("total_agent_memory_mb"),
+            !json
+                .as_object()
+                .unwrap()
+                .contains_key("total_agent_memory_mb"),
             "无 Agent 时 total_agent_memory_mb 应被序列化跳过"
         );
         // total_agent_cpu_percent 始终输出（即使 0.0）
-        assert_eq!(
-            json["total_agent_cpu_percent"].as_f64().unwrap(),
-            0.0
-        );
+        assert_eq!(json["total_agent_cpu_percent"].as_f64().unwrap(), 0.0);
         assert!(json["agents"].as_array().unwrap().is_empty());
     }
 

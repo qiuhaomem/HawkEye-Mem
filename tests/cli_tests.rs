@@ -126,7 +126,11 @@ fn test_it_cli_007_config_load() {
     )
     .expect("应该能创建临时配置文件");
 
-    let (stdout, _, code) = run_bin(&["--config", config_path.to_str().expect("临时路径应合法"), "--json"]);
+    let (stdout, _, code) = run_bin(&[
+        "--config",
+        config_path.to_str().expect("临时路径应合法"),
+        "--json",
+    ]);
     let _ = std::fs::remove_dir_all(&dir);
     assert_eq!(code, 0);
 
@@ -150,7 +154,10 @@ fn test_it_cli_008_env_config() {
     )
     .expect("应该能创建临时配置文件");
 
-    std::env::set_var("HAWKEYE_MEM_CONFIG", config_path.to_str().expect("临时路径应合法"));
+    std::env::set_var(
+        "HAWKEYE_MEM_CONFIG",
+        config_path.to_str().expect("临时路径应合法"),
+    );
     let (stdout, _, code) = run_bin(&["--json"]);
     std::env::remove_var("HAWKEYE_MEM_CONFIG");
     let _ = std::fs::remove_dir_all(&dir);
@@ -261,7 +268,9 @@ fn test_it_json_003_used_percent_precision() {
     let (stdout, _, code) = run_bin(&["--json"]);
     assert_eq!(code, 0);
     let v: serde_json::Value = serde_json::from_str(&stdout).expect("JSON输出应该合法");
-    let percent = v["system"]["used_percent"].as_f64().expect("used_percent 应为数字");
+    let percent = v["system"]["used_percent"]
+        .as_f64()
+        .expect("used_percent 应为数字");
     let formatted = format!("{:.1}", percent);
     // 验证只有1位小数
     let parts: Vec<&str> = formatted.split('.').collect();
@@ -381,7 +390,11 @@ fn test_it_int_001_config_lifecycle() {
     )
     .expect("应该能创建临时配置文件");
 
-    let (stdout2, _, _) = run_bin(&["--config", config_path.to_str().expect("临时路径应合法"), "--json"]);
+    let (stdout2, _, _) = run_bin(&[
+        "--config",
+        config_path.to_str().expect("临时路径应合法"),
+        "--json",
+    ]);
     let _ = std::fs::remove_dir_all(&dir);
     let v2: serde_json::Value = serde_json::from_str(&stdout2).expect("JSON输出应该合法");
     let conf2 = v2["agent_guidance"]["confidence"]
@@ -476,7 +489,9 @@ fn test_it_cal_001_json_with_tokens_processed() {
         v.get("_calibration").is_some(),
         "JSON should contain '_calibration' key when --tokens-processed is provided"
     );
-    let cal = v["_calibration"].as_object().expect("_calibration 应为对象");
+    let cal = v["_calibration"]
+        .as_object()
+        .expect("_calibration 应为对象");
     assert_eq!(
         cal["tokens_processed"], 4096,
         "tokens_processed should match"

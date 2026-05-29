@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use crate::calibration;
 use crate::calibration::algorithm::CalibrationEngine;
 use crate::calibration::csv_store::CsvStore;
@@ -10,6 +9,7 @@ use crate::engine::assessment::{
 };
 use crate::helpers;
 use crate::Cli;
+use std::path::PathBuf;
 
 // ============================================================================
 // --can-run 模式
@@ -35,7 +35,7 @@ pub fn handle_can_run(cli: &Cli) {
             eprintln!("--compare 需要 1-3 个逗号分隔的模型名");
             std::process::exit(1);
         }
-    let mut results: Vec<DeploymentAssessment> = Vec::new();
+        let mut results: Vec<DeploymentAssessment> = Vec::new();
         for name in &model_names {
             let req = DeploymentRequest {
                 model_name: Some(name.to_string()),

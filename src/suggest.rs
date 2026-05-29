@@ -66,18 +66,9 @@ pub fn suggest_concurrency(
     let task_mem = std::cmp::max(task_mem, 128); // 最少128MB
 
     // === 采集系统资源 ===
-    let cpu_cores = snapshot
-        .cpu
-        .as_ref()
-        .map(|c| c.cores)
-        .unwrap_or(1)
-        .max(1);
+    let cpu_cores = snapshot.cpu.as_ref().map(|c| c.cores).unwrap_or(1).max(1);
 
-    let total_memory_mb = snapshot
-        .memory
-        .as_ref()
-        .map(|m| m.total_mb)
-        .unwrap_or(4096);
+    let total_memory_mb = snapshot.memory.as_ref().map(|m| m.total_mb).unwrap_or(4096);
 
     let available_memory_mb = snapshot
         .memory
@@ -247,14 +238,20 @@ mod tests {
         CpuMetrics, CpuPressure, MemoryMetrics, PressureLevel, ResourceSnapshot,
     };
 
-    fn mock_snapshot(available_mb: u64, total_mb: u64, cores: u32, pressure: PressureLevel) -> ResourceSnapshot {
+    fn mock_snapshot(
+        available_mb: u64,
+        total_mb: u64,
+        cores: u32,
+        pressure: PressureLevel,
+    ) -> ResourceSnapshot {
         ResourceSnapshot {
             memory: Some(MemoryMetrics {
                 total_mb,
                 used_mb: total_mb.saturating_sub(available_mb),
                 available_mb,
                 used_percent: if total_mb > 0 {
-                    ((total_mb - available_mb) as f64 / total_mb as f64 * 100.0 * 10.0).round() / 10.0
+                    ((total_mb - available_mb) as f64 / total_mb as f64 * 100.0 * 10.0).round()
+                        / 10.0
                 } else {
                     0.0
                 },

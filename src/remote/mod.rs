@@ -68,8 +68,8 @@ impl RemoteServer {
             );
         }
 
-        let listener =
-            TcpListener::bind(&bind_addr).map_err(|e| format!("Failed to bind to {}: {}", bind_addr, e))?;
+        let listener = TcpListener::bind(&bind_addr)
+            .map_err(|e| format!("Failed to bind to {}: {}", bind_addr, e))?;
 
         eprintln!(
             "[hawk-eye-mem] Remote server listening on http://{}",
@@ -205,7 +205,13 @@ fn handle_client(
     let request = match parse_http_request(&mut reader, &client_ip) {
         Some(req) => req,
         None => {
-            send_response(&mut stream, 400, "Bad Request", "text/plain", b"Bad Request\n");
+            send_response(
+                &mut stream,
+                400,
+                "Bad Request",
+                "text/plain",
+                b"Bad Request\n",
+            );
             return;
         }
     };
@@ -256,13 +262,7 @@ fn handle_client(
         "/metrics" => handle_metrics(&mut stream),
         "/full" => handle_full(&mut stream),
         "/health" => handle_health(&mut stream),
-        _ => send_response(
-            &mut stream,
-            404,
-            "Not Found",
-            "text/plain",
-            b"Not Found\n",
-        ),
+        _ => send_response(&mut stream, 404, "Not Found", "text/plain", b"Not Found\n"),
     }
 }
 
@@ -343,22 +343,13 @@ fn handle_metrics(stream: &mut TcpStream) {
         .as_ref()
         .map(|m| m.pressure.to_string())
         .unwrap_or_else(|| "unknown".to_string());
-    let cpu_load_1m = snapshot
-        .cpu
-        .as_ref()
-        .map(|c| c.load_avg_1m)
-        .unwrap_or(0.0);
-    let disk_available_mb = snapshot
-        .disk
-        .as_ref()
-        .map(|d| d.available_mb)
-        .unwrap_or(0);
+    let cpu_load_1m = snapshot.cpu.as_ref().map(|c| c.load_avg_1m).unwrap_or(0.0);
+    let disk_available_mb = snapshot.disk.as_ref().map(|d| d.available_mb).unwrap_or(0);
     let gpu_vram_available_mb: u64 = snapshot
         .gpu
         .as_ref()
         .map(|gpus| {
-            gpus
-                .iter()
+            gpus.iter()
                 .map(|g| g.vram_total_mb.saturating_sub(g.vram_used_mb))
                 .sum()
         })
@@ -373,13 +364,7 @@ fn handle_metrics(stream: &mut TcpStream) {
     });
 
     let body = serde_json::to_string(&metrics).unwrap_or_else(|_| "{}".to_string());
-    send_response(
-        stream,
-        200,
-        "OK",
-        "application/json",
-        body.as_bytes(),
-    );
+    send_response(stream, 200, "OK", "application/json", body.as_bytes());
 }
 
 /// GET /full — 完整资源快照（含 agent_guidance）
@@ -410,13 +395,7 @@ fn handle_full(stream: &mut TcpStream) {
     });
 
     let body = serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
-    send_response(
-        stream,
-        200,
-        "OK",
-        "application/json",
-        body.as_bytes(),
-    );
+    send_response(stream, 200, "OK", "application/json", body.as_bytes());
 }
 
 // ============================================================================
@@ -555,10 +534,7 @@ mod tests {
     #[test]
     fn test_ut_rem_008_auth_invalid() {
         let mut headers = HashMap::new();
-        headers.insert(
-            "authorization".to_string(),
-            "Bearer wrong-key".to_string(),
-        );
+        headers.insert("authorization".to_string(), "Bearer wrong-key".to_string());
         assert!(!check_auth(&headers, "my-secret-key"));
     }
 
@@ -612,17 +588,10 @@ mod tests {
         let mut limiter = RateLimiter::new();
         // 发送 10 次（最大允许）
         for i in 0..RATE_LIMIT_MAX {
-            assert!(
-                limiter.check("10.0.0.1"),
-                "第 {} 次请求应允许",
-                i + 1
-            );
+            assert!(limiter.check("10.0.0.1"), "第 {} 次请求应允许", i + 1);
         }
         // 第 11 次应拒绝
-        assert!(
-            !limiter.check("10.0.0.1"),
-            "第 11 次请求应被限制"
-        );
+        assert!(!limiter.check("10.0.0.1"), "第 11 次请求应被限制");
     }
 
     // -----------------------------------------------------------------------
@@ -701,18 +670,12 @@ mod tests {
     fn test_sec_002_api_key_timing_attack_protection() {
         // 验证 check_auth 对相近 key 的拒绝
         let mut headers = HashMap::new();
-        headers.insert(
-            "authorization".to_string(),
-            "Bearer key-a".to_string(),
-        );
+        headers.insert("authorization".to_string(), "Bearer key-a".to_string());
         assert!(!check_auth(&headers, "key-b"));
 
         // 长度不同的 key
         let mut headers2 = HashMap::new();
-        headers2.insert(
-            "authorization".to_string(),
-            "Bearer short".to_string(),
-        );
+        headers2.insert("authorization".to_string(), "Bearer short".to_string());
         assert!(!check_auth(&headers2, "a-very-long-key-that-exceeds"));
 
         // 空 key vs 有 key
@@ -735,7 +698,12 @@ mod tests {
         });
 
         // 验证只包含允许的字段
-        let keys: Vec<&str> = metrics.as_object().unwrap().keys().map(|k| k.as_str()).collect();
+        let keys: Vec<&str> = metrics
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(|k| k.as_str())
+            .collect();
         assert!(keys.contains(&"memory_available_mb"));
         assert!(keys.contains(&"memory_pressure"));
         assert!(keys.contains(&"cpu_load_1m"));
@@ -858,7 +826,8 @@ mod tests {
             .next()
             .ok_or_else(|| "Invalid URL: no host".to_string())?;
 
-        let stream = TcpStream::connect(addr).map_err(|e| format!("Connect failed: {} (addr={})", e, addr))?;
+        let stream = TcpStream::connect(addr)
+            .map_err(|e| format!("Connect failed: {} (addr={})", e, addr))?;
         let mut writer = stream
             .try_clone()
             .map_err(|e| format!("Clone failed: {}", e))?;

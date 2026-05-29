@@ -112,9 +112,10 @@ impl EnvironmentFingerprint {
 
         // --- 内存变化 ---
         // CR-02: 绝对值变化 > 4GB 或 > 20% 总内存（取较大者）
-        let mem_diff = (self.total_memory_mb as i64 - previous.total_memory_mb as i64).unsigned_abs();
+        let mem_diff =
+            (self.total_memory_mb as i64 - previous.total_memory_mb as i64).unsigned_abs();
         let mem_threshold = std::cmp::max(
-            4096u64,                               // 4GB 绝对阈值
+            4096u64,                             // 4GB 绝对阈值
             previous.total_memory_mb * 20 / 100, // 20% 相对阈值
         );
         if mem_diff >= mem_threshold {

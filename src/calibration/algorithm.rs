@@ -78,14 +78,15 @@ impl<S: CalibrationStore> CalibrationEngine<S> {
 
         // CR-07: 首次升级庆祝提示
         if matches!(status, CalibrationStatus::Calibrated { .. })
-            && !self.celebrated_models.contains(&model_hash) {
-                eprintln!(
-                    "🎉 [hawk-eye-mem] {} 校准完成！你的 Agent 现在心里有数了 ({} 次采样)",
-                    model_name,
-                    points.len()
-                );
-                self.celebrated_models.insert(model_hash);
-            }
+            && !self.celebrated_models.contains(&model_hash)
+        {
+            eprintln!(
+                "🎉 [hawk-eye-mem] {} 校准完成！你的 Agent 现在心里有数了 ({} 次采样)",
+                model_name,
+                points.len()
+            );
+            self.celebrated_models.insert(model_hash);
+        }
 
         Ok(status)
     }

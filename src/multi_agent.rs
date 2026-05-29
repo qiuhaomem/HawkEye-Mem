@@ -231,7 +231,10 @@ impl MultiAgentDetector {
             let name = parts[1].to_string();
 
             // RSS 为倒数第二个字段（KB），转 MB
-            let memory_rss_mb = parts[parts.len() - 2].parse::<u64>().ok().map(|kb| kb / 1024);
+            let memory_rss_mb = parts[parts.len() - 2]
+                .parse::<u64>()
+                .ok()
+                .map(|kb| kb / 1024);
 
             // %CPU 为最后一个字段
             let cpu_percent: Option<f64> = parts[parts.len() - 1].parse().ok();
@@ -258,7 +261,11 @@ impl ResourceCollector for MultiAgentDetector {
         // V0.4: 计算所有 Agent 的内存和 CPU 总和
         let total_agent_memory_mb: Option<u64> = {
             let sum: u64 = agents.iter().filter_map(|a| a.memory_rss_mb).sum();
-            if count > 0 { Some(sum) } else { None }
+            if count > 0 {
+                Some(sum)
+            } else {
+                None
+            }
         };
         let total_agent_cpu_percent: f64 = agents.iter().filter_map(|a| a.cpu_percent).sum();
 
@@ -364,7 +371,10 @@ mod tests {
             let _ = detection.total_agent_cpu_percent;
             // 验证 JSON 序列化正常工作
             let json = serde_json::to_value(&detection).unwrap();
-            assert!(json.get("total_agent_cpu_percent").is_some(), "total_agent_cpu_percent 必须输出");
+            assert!(
+                json.get("total_agent_cpu_percent").is_some(),
+                "total_agent_cpu_percent 必须输出"
+            );
             assert!(json.get("agents").is_some(), "agents 必须输出");
             assert!(json.get("count").is_some(), "count 必须输出");
         } else {
