@@ -41,7 +41,7 @@ margin = 30.0
 #[derive(Parser)]
 #[command(
     name = "hawk-eye-mem",
-    version = "0.5.0",
+    version = "0.6.0",
     about = "AI-Native memory monitoring"
 )]
 pub struct Cli {

@@ -110,7 +110,7 @@ fn test_it_cli_005_help() {
 fn test_it_cli_006_version() {
     let (stdout, _, code) = run_bin(&["--version"]);
     assert_eq!(code, 0);
-    assert!(stdout.contains("0.5.0"), "version should contain 0.5.0");
+    assert!(stdout.contains("0.6.0"), "version should contain 0.6.0");
 }
 
 // IT-CLI-007: --config 加载自定义配置
