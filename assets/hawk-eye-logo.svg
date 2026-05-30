@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <linearGradient id="eyeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f0883e"/>
+      <stop offset="100%" style="stop-color:#d29922"/>
+    </linearGradient>
+    <linearGradient id="pupilGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#58a6ff"/>
+      <stop offset="100%" style="stop-color:#1f6feb"/>
+    </linearGradient>
+    <filter id="glowPupil">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="60" cy="60" r="58" fill="#0d1117" stroke="#30363d" stroke-width="2"/>
+
+  <!-- Outer eye shape -->
+  <ellipse cx="60" cy="60" rx="45" ry="32" fill="url(#eyeGrad)" opacity="0.15" stroke="url(#eyeGrad)" stroke-width="2.5"/>
+
+  <!-- Inner eye -->
+  <ellipse cx="60" cy="60" rx="38" ry="26" fill="#161b22" stroke="url(#eyeGrad)" stroke-width="1.5"/>
+
+  <!-- Iris -->
+  <circle cx="60" cy="60" r="16" fill="url(#pupilGrad)" filter="url(#glowPupil)" opacity="0.9"/>
+
+  <!-- Pupil -->
+  <circle cx="60" cy="60" r="8" fill="#0d1117"/>
+
+  <!-- Highlight -->
+  <circle cx="55" cy="54" r="4" fill="#ffffff" opacity="0.6"/>
+
+  <!-- Small highlight -->
+  <circle cx="66" cy="66" r="2" fill="#ffffff" opacity="0.3"/>
+
+  <!-- Eyebrow / top arc -->
+  <path d="M 28 45 Q 60 28 92 45" stroke="url(#eyeGrad)" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.8"/>
+
+  <!-- Bottom line -->
+  <path d="M 28 75 Q 60 92 92 75" stroke="url(#eyeGrad)" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.4"/>
+</svg>

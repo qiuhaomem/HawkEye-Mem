@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 460" font-family="'Fira Code', 'JetBrains Mono', 'SF Mono', 'Courier New', monospace">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0d1117"/>
+      <stop offset="100%" style="stop-color:#161b22"/>
+    </linearGradient>
+    <linearGradient id="agentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#58a6ff"/>
+      <stop offset="100%" style="stop-color:#1f6feb"/>
+    </linearGradient>
+    <linearGradient id="mcpGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3fb950"/>
+      <stop offset="100%" style="stop-color:#238636"/>
+    </linearGradient>
+    <linearGradient id="memGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f0883e"/>
+      <stop offset="100%" style="stop-color:#d29922"/>
+    </linearGradient>
+    <linearGradient id="sysGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#bc8cff"/>
+      <stop offset="100%" style="stop-color:#8957e5"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#58a6ff"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#3fb950"/>
+    </marker>
+    <marker id="arrowOrange" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#f0883e"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="860" height="460" fill="url(#bg)" rx="12"/>
+
+  <!-- Title -->
+  <text x="430" y="38" text-anchor="middle" fill="#e6edf3" font-size="16" font-weight="700">秋毫mem 架构</text>
+  <line x1="240" y1="48" x2="620" y2="48" stroke="#30363d" stroke-width="1"/>
+
+  <!-- Layer: AI Agent -->
+  <rect x="80" y="80" width="180" height="80" rx="10" fill="#0d1117" stroke="url(#agentGrad)" stroke-width="2" filter="url(#shadow)"/>
+  <text x="170" y="115" text-anchor="middle" fill="#58a6ff" font-size="28">🤖</text>
+  <text x="170" y="143" text-anchor="middle" fill="#58a6ff" font-size="13" font-weight="600">AI Agent</text>
+  <text x="170" y="155" text-anchor="middle" fill="#8b949e" font-size="10">Hermes / Claude / 自研</text>
+
+  <!-- Arrow: Agent → MCP -->
+  <line x1="260" y1="120" x2="335" y2="120" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrowBlue)" stroke-dasharray="6,3"/>
+
+  <!-- Layer: MCP Protocol -->
+  <rect x="340" y="80" width="180" height="80" rx="10" fill="#0d1117" stroke="url(#mcpGrad)" stroke-width="2" filter="url(#shadow)"/>
+  <text x="430" y="108" text-anchor="middle" fill="#3fb950" font-size="16" font-weight="700">MCP</text>
+  <text x="430" y="128" text-anchor="middle" fill="#3fb950" font-size="11">/ CLI 直调</text>
+  <text x="430" y="148" text-anchor="middle" fill="#8b949e" font-size="10">12+ 工具 · JSON 协议</text>
+
+  <!-- Arrow: MCP → CLI -->
+  <line x1="520" y1="120" x2="595" y2="120" stroke="#3fb950" stroke-width="2" marker-end="url(#arrowGreen)"/>
+
+  <!-- Layer: hawk-eye-mem CLI -->
+  <rect x="600" y="70" width="195" height="100" rx="12" fill="#0d1117" stroke="url(#memGrad)" stroke-width="2.5" filter="url(#shadow)"/>
+  <text x="698" y="102" text-anchor="middle" fill="#f0883e" font-size="22">🦅</text>
+  <text x="698" y="125" text-anchor="middle" fill="#f0883e" font-size="13" font-weight="700">hawk-eye-mem</text>
+  <text x="698" y="142" text-anchor="middle" fill="#d29922" font-size="10">Rust CLI · &lt;1ms · &lt;1MB</text>
+  <text x="698" y="155" text-anchor="middle" fill="#8b949e" font-size="9">v0.6.0 · 336 测试全绿</text>
+
+  <!-- JSON output -->
+  <rect x="50" y="200" width="300" height="100" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <text x="65" y="222" fill="#8b949e" font-size="10" font-weight="600">📋 JSON 输出示例</text>
+  <text x="65" y="240" fill="#d29922" font-size="10">{</text>
+  <text x="75" y="256" fill="#58a6ff" font-size="10">  "agent_guidance":</text>
+  <text x="185" y="256" fill="#f0f6fc" font-size="10">{</text>
+  <text x="85" y="272" fill="#79c0ff" font-size="10">    "action":</text>
+  <text x="155" y="272" fill="#a5d6ff" font-size="10">"reduce_context"</text>
+  <text x="75" y="288" fill="#58a6ff" font-size="10">  }</text>
+  <text x="65" y="296" fill="#d29922" font-size="10">}</text>
+
+  <!-- Arrow: CLI → System -->
+  <line x1="698" y1="170" x2="698" y2="220" stroke="#f0883e" stroke-width="2" marker-end="url(#arrowOrange)"/>
+
+  <!-- Layer: System Resources -->
+  <rect x="540" y="225" width="300" height="105" rx="10" fill="#0d1117" stroke="url(#sysGrad)" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="690" y="250" text-anchor="middle" fill="#bc8cff" font-size="12" font-weight="600">系统资源采集</text>
+
+  <!-- Resource boxes -->
+  <rect x="555" y="260" width="60" height="30" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <text x="585" y="279" text-anchor="middle" fill="#f0883e" font-size="11">💾 内存</text>
+
+  <rect x="622" y="260" width="55" height="30" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <text x="650" y="279" text-anchor="middle" fill="#3fb950" font-size="11">⚡ CPU</text>
+
+  <rect x="684" y="260" width="50" height="30" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <text x="709" y="279" text-anchor="middle" fill="#bc8cff" font-size="11">🎮 GPU</text>
+
+  <rect x="741" y="260" width="50" height="30" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <text x="766" y="279" text-anchor="middle" fill="#58a6ff" font-size="10">💽 磁盘</text>
+
+  <rect x="555" y="295" width="115" height="25" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <text x="613" y="312" text-anchor="middle" fill="#d29922" font-size="11">🌡️ 温度 · 趋势</text>
+
+  <rect x="678" y="295" width="115" height="25" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <text x="736" y="312" text-anchor="middle" fill="#ff6b6b" font-size="11">👥 Agent 进程</text>
+
+  <!-- Arrow from JSON to Agent guidance concept -->
+  <path d="M 350 250 Q 400 250 400 340 Q 400 380 170 380 L 170 170" fill="none" stroke="#58a6ff" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrowBlue)" opacity="0.5"/>
+
+  <!-- Bottom: Decision Flow -->
+  <rect x="50" y="330" width="760" height="50" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <text x="430" y="353" text-anchor="middle" fill="#8b949e" font-size="10">决策流：Agent 每次推理前调 MCP → CLI 采集 → JSON 返回 → 读取 agent_guidance.action → 自动响应</text>
+  
+  <!-- Key metrics -->
+  <text x="100" y="380" fill="#3fb950" font-size="11">✓ &lt;1ms 采集延迟</text>
+  <text x="300" y="380" fill="#3fb950" font-size="11">✓ &lt;1MB 二进制体积</text>
+  <text x="530" y="380" fill="#3fb950" font-size="11">✓ 336 测试全绿</text>
+
+  <!-- Legend -->
+  <text x="430" y="430" text-anchor="middle" fill="#8b949e" font-size="9">Build with 🦀 Rust · 🐍 Python MCP · ❤️ by qiuhaomem</text>
+</svg>
