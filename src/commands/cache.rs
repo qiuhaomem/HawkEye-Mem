@@ -1,4 +1,5 @@
 use crate::cache;
+use crate::config;
 use crate::helpers;
 use crate::Cli;
 use std::path::PathBuf;
@@ -65,12 +66,34 @@ pub fn handle_model_compat(model_compat: Option<&str>) {
 
 /// 处理 --analyze-cache-gaps
 pub fn handle_analyze_cache_gaps(cli: &crate::Cli) {
+    // 读取配置中的 [cache] 段作为默认值
+    let cache_cfg = config::AppConfig::load(cli.config.as_deref())
+        .ok()
+        .flatten()
+        .and_then(|cfg| cfg.cache);
+
+    let days = if cli.days != 7 || cache_cfg.is_none() {
+        cli.days
+    } else if let Some(ref cfg) = cache_cfg {
+        cfg.analysis_days.unwrap_or(cli.days)
+    } else {
+        cli.days
+    };
+
+    let target = if (cli.target - 99.0).abs() < f64::EPSILON || cache_cfg.is_none() {
+        cli.target
+    } else if let Some(ref cfg) = cache_cfg {
+        cfg.target_hit_rate.unwrap_or(cli.target)
+    } else {
+        cli.target
+    };
+
     let stats_path = dirs_next::home_dir()
         .unwrap_or_else(|| PathBuf::from("/tmp"))
         .join(".config/hawk-eye-mem/cache_stats.jsonl");
     let store = cache::CacheStatsStore::new(stats_path);
     let collector = cache::CacheStatsCollector::new(store);
-    let report = collector.analyze_gaps(cli.days, cli.target);
+    let report = collector.analyze_gaps(days, target);
 
     if cli.json {
         helpers::print_json(&report);

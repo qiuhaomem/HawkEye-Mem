@@ -18,6 +18,7 @@ mod trends;
 
 use calibration::algorithm::CalibrationEngine;
 use calibration::csv_store::CsvStore;
+#[allow(unused_imports)]
 use calibration::CalibrationStore;
 use clap::Parser;
 use collector::registry::CollectorRegistry;
@@ -26,6 +27,7 @@ use state_machine::{StateMachine, StateMachineConfig, StateTransition};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+#[allow(unused_imports)]
 use trends::{HistoryStore, TrendAnalyzer};
 
 const DEFAULT_CONFIG_CONTENT: &str = r#"[model]
@@ -36,6 +38,16 @@ bytes_per_token = 2048
 # Safety margin percentage (default: 30.0)
 # Higher = more conservative context window estimate
 margin = 30.0
+
+[cache]
+# 目标缓存命中率（百分比，默认 99.0）
+target_hit_rate = 99.0
+
+# 警告触发阈值（百分比，默认 95.0）
+warn_threshold = 95.0
+
+# 默认分析天数（配合 --analyze-cache-gaps 使用，默认 7）
+analysis_days = 7
 "#;
 
 #[derive(Parser)]
@@ -173,11 +185,6 @@ pub struct Cli {
     /// 目标命中率（默认 99.0%），配合 --analyze-cache-gaps 使用
     #[arg(long, default_value = "99.0")]
     target: f64,
-
-    // === V0.6 Token审计增强 ===
-    /// 按来源过滤（weixin/cron/api_server），配合 --token-audit 使用
-    #[arg(long)]
-    source: Option<String>,
 
     // === V0.6 心跳模式 ===
     /// 输出单行心跳 JSON（pressure/available_mb/action/timestamp）
@@ -497,6 +504,7 @@ fn main() {
 // --can-run 模式
 // ============================================================================
 
+#[allow(dead_code)]
 fn handle_can_run(cli: &Cli) {
     let mut registry = CollectorRegistry::new();
     if let Ok(Some(cfg)) = config::AppConfig::load(cli.config.as_deref()) {
@@ -544,7 +552,9 @@ fn handle_can_run(cli: &Cli) {
     helpers::print_json(&assessment);
 }
 
+// 增加 --source 过滤支持（已移除，token audit 通过 MCP 工具调用）
 /// 在比较结果中找到推荐项
+#[allow(dead_code)]
 fn find_recommended(results: &[engine::assessment::DeploymentAssessment]) -> Option<usize> {
     use engine::assessment::Verdict;
 
@@ -576,6 +586,7 @@ fn find_recommended(results: &[engine::assessment::DeploymentAssessment]) -> Opt
 }
 
 /// 输出比较结果
+#[allow(dead_code)]
 fn print_compare_output(
     results: &[engine::assessment::DeploymentAssessment],
     recommended_idx: Option<usize>,
@@ -654,6 +665,7 @@ fn print_compare_output(
 }
 
 /// 截断字符串到指定宽度（中文字符计2宽度的近似处理）
+#[allow(dead_code)]
 fn truncate_str(s: &str, max_width: usize) -> String {
     if s.len() <= max_width {
         return s.to_string();
@@ -677,6 +689,7 @@ fn truncate_str(s: &str, max_width: usize) -> String {
 // ============================================================================
 
 /// --alert 模式：仅当压力 critical 时输出最小化 JSON 单行
+#[allow(dead_code)]
 fn handle_alert_mode(cli: &Cli) {
     let mut registry = CollectorRegistry::new();
     if let Ok(Some(cfg)) = config::AppConfig::load(cli.config.as_deref()) {
@@ -713,6 +726,7 @@ fn handle_alert_mode(cli: &Cli) {
 // --list-models 模式
 // ============================================================================
 /// 模型列表表格
+#[allow(dead_code)]
 fn print_model_table() {
     use crate::engine::assessment::{AssessmentEngine, DeploymentRequest};
     let models = models::ModelLibrary::all();
@@ -1135,7 +1149,7 @@ pub fn check_model_compatibility(model_spec: Option<&str>) -> Value {
     };
 
     let model_spec = match model_spec {
-        Some(s) if s.is_empty() => {
+        Some(s) if s.trim().is_empty() => {
             // No argument: list all providers (same as None)
             let providers = compat.get("providers").and_then(|p| p.as_object());
             let mut list = Vec::new();
@@ -1220,7 +1234,7 @@ pub fn check_model_compatibility(model_spec: Option<&str>) -> Value {
             if let Some(models) = info.get("models").and_then(|v| v.as_array()) {
                 if models
                     .iter()
-                    .any(|m| m.as_str().map_or(false, |m_name| m_name == model_name))
+                    .any(|m| m.as_str().is_some_and(|m_name| m_name == model_name))
                     || models.iter().any(|m| m.as_str() == Some("*"))
                 {
                     let supports_prompt_caching = info

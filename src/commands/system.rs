@@ -264,10 +264,14 @@ pub fn handle_heartbeat(cli: &Cli) {
         }
     }
     let snapshot = registry.collect_all();
-    let metrics = snapshot
-        .memory
-        .as_ref()
-        .expect("Memory collector must succeed");
+    let metrics = match snapshot.memory.as_ref() {
+        Some(m) => m,
+        None => {
+            eprintln!("{{\"error\":\"memory collector failed\",\"action\":\"unknown\",\"timestamp\":\"{}\"}}",
+                chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S"));
+            std::process::exit(1);
+        }
+    };
 
     let pressure = match &metrics.pressure {
         collector::PressureLevel::Low => "low",
@@ -293,5 +297,11 @@ pub fn handle_heartbeat(cli: &Cli) {
         "timestamp": timestamp,
     });
 
-    println!("{}", serde_json::to_string(&output).unwrap());
+    match serde_json::to_string(&output) {
+        Ok(s) => println!("{}", s),
+        Err(e) => {
+            eprintln!("{{\"error\":\"serialization failed: {}\",\"timestamp\":\"{}\"}}", e, timestamp);
+            std::process::exit(1);
+        }
+    }
 }

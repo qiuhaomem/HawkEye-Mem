@@ -77,10 +77,10 @@ impl CacheAdvisor {
                 ttl_seconds: 0,
                 max_cache_mb: 0,
                 prefetch_enabled: false,
-                reason: format!("内存危机，立即清空缓存保命"),
+                reason: "内存危机，立即清空缓存保命".to_string(),
                 protocol_version: super::CACHE_PROTOCOL_VERSION,
             },
-            PressureLevel::High | _ if available_pct < 5.0 => CacheStrategy {
+            _ if available_pct < 5.0 => CacheStrategy {
                 mode: CacheMode::Emergency,
                 ttl_seconds: 0,
                 max_cache_mb: 0,
@@ -88,7 +88,7 @@ impl CacheAdvisor {
                 reason: format!("内存危机（可用{:.1}%），立即清空缓存保命", available_pct),
                 protocol_version: super::CACHE_PROTOCOL_VERSION,
             },
-            PressureLevel::High | _ if available_pct < 15.0 => CacheStrategy {
+            _ if available_pct < 15.0 => CacheStrategy {
                 mode: CacheMode::Conservative,
                 ttl_seconds: 60,
                 max_cache_mb: Self::calc_max_cache(pressure.available_mb, 0.05),
@@ -96,7 +96,7 @@ impl CacheAdvisor {
                 reason: format!("内存压力high（可用{:.1}%），切换保守缓存", available_pct),
                 protocol_version: super::CACHE_PROTOCOL_VERSION,
             },
-            PressureLevel::Medium | _ if available_pct < 30.0 => CacheStrategy {
+            _ if available_pct < 30.0 => CacheStrategy {
                 mode: CacheMode::Balanced,
                 ttl_seconds: 300,
                 max_cache_mb: Self::calc_max_cache(pressure.available_mb, 0.10),

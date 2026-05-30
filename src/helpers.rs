@@ -7,6 +7,7 @@ pub fn print_json<T: Serialize>(value: &T) {
 }
 
 /// 打印单行JSON（紧凑格式）
+#[allow(dead_code)]
 pub fn print_json_compact<T: Serialize>(value: &T) {
     println!("{}", serde_json::to_string(value).unwrap());
 }

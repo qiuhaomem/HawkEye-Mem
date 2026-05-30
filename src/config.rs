@@ -3,6 +3,7 @@ use serde::Deserialize;
 use std::path::PathBuf;
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct AppConfig {
     pub model: Option<ModelConfigSection>,
     pub directories: Option<DirectoriesConfig>,
@@ -12,6 +13,7 @@ pub struct AppConfig {
     pub multi_agent: Option<MultiAgentConfig>,
     pub remote: Option<RemoteConfig>,
     pub history: Option<HistoryConfig>,
+    pub cache: Option<CacheConfig>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -20,12 +22,14 @@ pub struct RemoteConfig {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct HistoryConfig {
     pub retention_days: Option<u64>,
     pub auto_record: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct GpuConfig {
     pub rocm_smi_path: Option<String>,
 }
@@ -49,6 +53,7 @@ pub struct StateMachineConfig {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct MultiAgentConfig {
     pub enabled: Option<bool>,
     pub extra_process_names: Option<Vec<String>>,
@@ -57,9 +62,21 @@ pub struct MultiAgentConfig {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct DirectoriesConfig {
     pub model_cache: Option<String>,
     pub agent_process_names: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+pub struct CacheConfig {
+    /// 目标命中率百分比（默认 99.0）
+    pub target_hit_rate: Option<f64>,
+    /// 警告阈值百分比（默认 95.0）
+    pub warn_threshold: Option<f64>,
+    /// 分析天数（默认 7）
+    pub analysis_days: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]

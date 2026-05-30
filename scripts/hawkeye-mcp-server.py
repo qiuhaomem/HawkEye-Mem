@@ -321,6 +321,35 @@ def handle_list_tools(params: dict) -> dict:
                     "required": []
                 }
             },
+            # ======== V0.6 缓存差距分析 ========
+            {
+                "name": "get_cache_gaps_analysis",
+                "description": "分析缓存命中率差距，输出缺口分类和修复建议。返回JSON格式分析报告。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "days": {
+                            "type": "integer",
+                            "description": "分析最近N天的缓存数据（默认7天）"
+                        },
+                        "target": {
+                            "type": "number",
+                            "description": "目标命中率百分比（默认99.0）"
+                        }
+                    },
+                    "required": []
+                }
+            },
+            # ======== V0.6 心跳 ========
+            {
+                "name": "get_heartbeat",
+                "description": "获取单行心跳JSON，包含系统压力、可用内存、建议操作和时间戳。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            },
         ]
     }
 
@@ -560,6 +589,29 @@ def handle_call_tool(params: dict) -> dict:
             return {"content": [{"type": "text", "text": json.dumps({
                 "error": str(e)
             })}], "isError": True}
+
+    # ======== V0.6 缓存差距分析 ========
+    elif name == "get_cache_gaps_analysis":
+        args = ["--analyze-cache-gaps", "--json"]
+        days = arguments.get("days")
+        if days is not None:
+            args.extend(["--days", str(days)])
+        target = arguments.get("target")
+        if target is not None:
+            args.extend(["--target", str(target)])
+        data = run_hawkeye(args)
+        if "error" in data:
+            return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
+        if "value" in data:
+            return {"content": [{"type": "text", "text": data["value"]}]}
+        return {"content": [{"type": "text", "text": json.dumps(data, indent=2)}]}
+
+    # ======== V0.6 心跳 ========
+    elif name == "get_heartbeat":
+        data = run_hawkeye(["--heartbeat"])
+        if "error" in data:
+            return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
+        return {"content": [{"type": "text", "text": json.dumps(data, indent=2)}]}
 
     else:
         return {

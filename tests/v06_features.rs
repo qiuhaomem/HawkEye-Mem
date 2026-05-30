@@ -194,3 +194,58 @@ fn test_heartbeat_json_flag_compatible() {
     let _: serde_json::Value =
         serde_json::from_str(stdout.trim()).expect("heartbeat --json output is not valid JSON");
 }
+
+/// UT-V06-008: --analyze-cache-gaps 超大 --days 不崩溃
+#[test]
+fn test_analyze_cache_gaps_large_days() {
+    let output = Command::new(hawk_eye_binary())
+        .args(["--analyze-cache-gaps", "--days", "9999"])
+        .output()
+        .expect("Failed to run --analyze-cache-gaps --days 9999");
+
+    assert!(output.status.success(), "large days caused crash");
+}
+
+/// UT-V06-009: --target 0 边缘值
+#[test]
+fn test_analyze_cache_gaps_target_zero() {
+    let output = Command::new(hawk_eye_binary())
+        .args(["--analyze-cache-gaps", "--json", "--target", "0"])
+        .output()
+        .expect("Failed to run --analyze-cache-gaps --target 0");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let json: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
+    assert_eq!(json["target_hit_rate"].as_f64().unwrap(), 0.0);
+}
+
+/// UT-V06-010: --source 已移除（不在 help 中）
+#[test]
+fn test_source_flag_removed() {
+    let output = Command::new(hawk_eye_binary())
+        .arg("--help")
+        .output()
+        .expect("Failed to run --help");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        !stdout.contains("--source"),
+        "--source flag should have been removed from CLI"
+    );
+}
+
+/// UT-V06-011: --analyze-cache-gaps --json --days 1 --target 50 组合参数
+#[test]
+fn test_analyze_cache_gaps_combined_params() {
+    let output = Command::new(hawk_eye_binary())
+        .args(["--analyze-cache-gaps", "--json", "--days", "1", "--target", "50.0"])
+        .output()
+        .expect("Failed to run combined params");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let json: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
+    assert_eq!(json["period_days"].as_u64().unwrap(), 1, "days should be 1");
+    assert!((json["target_hit_rate"].as_f64().unwrap() - 50.0).abs() < 0.01, "target should be 50");
+}
