@@ -457,7 +457,17 @@ def handle_list_tools(params: dict) -> dict:
                     "required": []
                 }
             },
-            # ======== V0.7 能力全景展示 ========
+            # ======== V0.7 网络状态 ========
+            {
+                "name": "get_network_status",
+                "description": "获取当前网络状态，包含各网卡信息、实时上下行速率、延迟等。返回JSON格式网络数据。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            },
+            # ======== V0.8 能力全景展示 ========
             {
                 "name": "run_onboarding_showcase",
                 "description": "运行秋毫mem 能力全景展示 — 一次性获取所有系统状态、缓存策略、Token花销、趋势分析、并发建议、GPU/Agent、环境指纹、Agent指导。让Agent和用户一次性感知秋毫mem的全部能力。零Token消耗。",
@@ -729,6 +739,13 @@ def handle_call_tool(params: dict) -> dict:
         if "error" in data:
             return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
         return {"content": [{"type": "text", "text": json.dumps(data, indent=2)}]}
+
+    elif name == "get_network_status":
+        data = run_hawkeye(["--json"])
+        if "error" in data:
+            return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
+        net_data = data.get("system", {}).get("network", {})
+        return {"content": [{"type": "text", "text": json.dumps(net_data, indent=2)}]}
 
     elif name == "run_onboarding_showcase":
         return handle_onboarding_showcase()

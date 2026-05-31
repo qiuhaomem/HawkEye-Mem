@@ -131,6 +131,11 @@ pub fn handle_onboarding(cli: &Cli) {
     print_env_fingerprint();
     println!();
 
+    // ── 网络状态（V0.7.1）────────────────────────────
+    print_section("📡", "网络状态");
+    print_network_status();
+    println!();
+
     // ── 7. Agent 指导 ────────────────────────────────────────────
     print_section("💡", "Agent 决策指导");
     if let Some(ref mem) = snapshot.memory {
@@ -331,6 +336,38 @@ fn print_env_fingerprint() {
                 fp.hostname, fp.platform, fp.cpu_cores, fp.total_memory_mb);
         }
         _ => { println!("  🆔  环境指纹: 未生成（运行一次 hawk-eye-mem 即可创建）"); }
+    }
+}
+
+fn print_network_status() {
+    let registry = CollectorRegistry::new();
+    let snapshot = registry.collect_all();
+    if let Some(ref net) = snapshot.network {
+        for iface in &net.interfaces {
+            let status_icon = if iface.state == "up" { "✅" } else { "❌" };
+            let speed_str = if let Some(s) = iface.speed_mbps {
+                format!("↑ {}Mbps", s)
+            } else { "--".to_string() };
+            println!("  🖥️  {} ({})  {}  {}", iface.name, iface.if_type, speed_str, status_icon);
+
+            if let (Some(rx), Some(tx)) = (iface.rx_speed_kbps, iface.tx_speed_kbps) {
+                println!("     下载: {:.2} MB/s  |  上传: {:.2} MB/s", rx/1024.0, tx/1024.0);
+            }
+
+            if let Some(ref ip) = iface.ip {
+                println!("     IP: {}", ip);
+            }
+        }
+
+        if let Some(ref lat) = net.latency {
+            if let Some(ms) = lat.ping_ms {
+                println!("  📶  延迟: {:.1}ms → {}", ms, lat.target);
+            } else {
+                println!("  📶  延迟: 不可达");
+            }
+        }
+    } else {
+        println!("  📡  网络信息不可用");
     }
 }
 

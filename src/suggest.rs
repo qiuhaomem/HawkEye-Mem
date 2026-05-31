@@ -283,6 +283,7 @@ mod tests {
             gpu: None,
             thermal: None,
             agents: None,
+            network: None,
             container_runtime: None,
             timestamp: String::new(),
             collection_duration_ms: 0.0,

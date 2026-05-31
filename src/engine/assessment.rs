@@ -403,6 +403,7 @@ mod tests {
             gpu: None,
             thermal: None,
             agents: None,
+            network: None,
             container_runtime: None,
             timestamp: "2025-01-01T00:00:00Z".to_string(),
             collection_duration_ms: 1.0,

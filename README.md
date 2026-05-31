@@ -158,7 +158,7 @@ hawk-eye-mem --json
 | **单行心跳** | `hawk-eye-mem --heartbeat` | 一行 JSON，适合 cron 定时推送到监控系统 |
 | **能力全景** 🆕 | `hawk-eye-mem --onboarding` | 一键展示秋毫mem所有亮点——系统/缓存/Token/趋势/并发，震惊agent |
 
-### 🤖 MCP 工具列表（共 15 个）
+### 🤖 MCP 工具列表（共 16 个）
 
 注册为 Hermes MCP 后，你的 Agent 直接调用这些工具：
 
@@ -176,8 +176,9 @@ hawk-eye-mem --json
 | `get_concurrency_suggestion` | 并发度建议——能跑几个子 Agent |
 | `get_cache_strategy` | 缓存策略推荐——aggressive / balanced / conservative / emergency |
 | `get_cache_gaps_analysis` | 缓存差距分析——命中率 vs 目标 |
-| `get_heartbeat` | 单行心跳——一行 JSON，零啰嗦 |
-| `run_token_audit` | Token 审计——查 API 费都烧哪儿了 |
+|| `get_heartbeat` | 单行心跳——一行 JSON，零啰嗦 |
+|| `get_network_status` | 获取网络状态（网卡/流量/延迟） |
+|| `run_token_audit` | Token 审计——查 API 费都烧哪儿了 |
 | `run_onboarding_showcase` 🆕 | 能力全景——一站式获取系统/缓存/Token/趋势/并发/GPU/Agent/环境 全数据 |
 
 ---

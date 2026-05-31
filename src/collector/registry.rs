@@ -15,6 +15,7 @@
 use super::cpu::CpuCollector;
 use super::disk::DiskCollector;
 use super::gpu::GpuCollector;
+use super::network::NetworkCollector;
 use super::{CollectorOutput, ResourceCollector, ResourceSnapshot};
 use crate::container::ContainerDetector;
 use crate::multi_agent::MultiAgentDetector;
@@ -78,6 +79,7 @@ impl CollectorRegistry {
 
         self.register(Box::new(CpuCollector));
         self.register(Box::new(GpuCollector));
+        self.register(Box::new(NetworkCollector));
         self.register(Box::new(ThermalCollector));
         // MultiAgentDetector 在 collect_all 前动态创建（依赖配置中的 extra 列表）
     }
@@ -93,6 +95,7 @@ impl CollectorRegistry {
         let mut gpu = None;
         let mut thermal = None;
         let mut agents = None;
+        let mut network = None;
 
         for collector in &self.collectors {
             match collector.collect() {
@@ -102,6 +105,7 @@ impl CollectorRegistry {
                 Ok(CollectorOutput::Disk(d)) => disk = Some(d),
                 Ok(CollectorOutput::Thermal(t)) => thermal = Some(t),
                 Ok(CollectorOutput::Agent(a)) => agents = Some(a),
+                Ok(CollectorOutput::Network(n)) => network = Some(n),
                 Err(e) => {
                     eprintln!("Warning: collector failed: {}", e);
                 }
@@ -164,6 +168,7 @@ impl CollectorRegistry {
             gpu,
             thermal,
             agents,
+            network,
             container_runtime,
             timestamp,
             collection_duration_ms: (duration_ms * 10.0).round() / 10.0,

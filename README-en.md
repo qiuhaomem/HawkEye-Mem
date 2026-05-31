@@ -108,7 +108,7 @@ hawk-eye-mem --json
 hermes mcp add hawk-eye-mem --command python3 --args scripts/hawkeye-mcp-server.py
 ```
 
-15 tools appear instantly. Your agent can ask "got enough memory?" before every heavy task.
+16 tools appear instantly. Your agent can ask "got enough memory?" before every heavy task.
 
 **Using another framework** — shell out:
 
@@ -144,7 +144,7 @@ hawk-eye-mem --json | jq '.agent_guidance.action'
 | **Heartbeat** | `hawk-eye-mem --heartbeat` | One-line JSON — cron-ready, alert-friendly |
 | **Showcase** 🆕 | `hawk-eye-mem --onboarding` | One command to show ALL features — system/cache/tokens/trends/concurrency, blows agent's mind |
 
-### 🤖 MCP Tools (15 total)
+### 🤖 MCP Tools (16 total)
 
 Register with Hermes and your agent gains these abilities:
 
@@ -162,8 +162,9 @@ Register with Hermes and your agent gains these abilities:
 | `get_concurrency_suggestion` | Safe concurrency — how many sub-agents? |
 | `get_cache_strategy` | Cache strategy: aggressive / balanced / conservative / emergency |
 | `get_cache_gaps_analysis` | Cache gap analysis — hit rate vs target |
-| `get_heartbeat` | One-line heartbeat JSON |
-| `run_token_audit` | Token spend audit — where's the API budget going? |
+|| `get_heartbeat` | One-line heartbeat JSON |
+|| `get_network_status` | Network status (interfaces/traffic/latency) |
+|| `run_token_audit` | Token spend audit — where's the API budget going? |
 | `run_onboarding_showcase` 🆕 | One-shot showcase — system/cache/tokens/trends/concurrency/GPU/Agent/env all in one JSON |
 
 ---

@@ -27,6 +27,7 @@ mod models;
 mod multi_agent;
 mod remote;
 mod state_machine;
+mod stats;
 mod suggest;
 mod thermal;
 mod trends;
@@ -223,6 +224,18 @@ pub struct Cli {
     /// 秋毫mem 能力全景展示 — 一键展示所有亮点功能
     #[arg(long)]
     pub onboarding: bool,
+
+    /// 采集并展示网络状态（接口/速率/延迟/IP）
+    #[arg(long)]
+    pub network: bool,
+
+    // === 本地埋点统计 ===
+    /// 查看使用统计数据
+    #[arg(long)]
+    pub stats: bool,
+    /// 清空使用统计数据
+    #[arg(long)]
+    pub reset_stats: bool,
 }
 
 fn main() {
@@ -272,34 +285,57 @@ fn main() {
     }
     if cli.cache_strategy {
         commands::cache::handle_cache_strategy(&cli);
+        stats::record("--cache-strategy");
         return;
     }
     if cli.cache_stats {
         commands::cache::handle_cache_stats();
+        stats::record("--cache-stats");
         return;
     }
     if cli.reset_cache_stats {
         commands::cache::handle_reset_cache_stats();
+        stats::record("--reset-cache-stats");
         return;
     }
     if cli.model_compat.is_some() {
         commands::cache::handle_model_compat(cli.model_compat.as_deref());
+        stats::record("--model-compat");
         return;
     }
     if cli.analyze_cache_gaps {
         commands::cache::handle_analyze_cache_gaps(&cli);
+        stats::record("--analyze-cache-gaps");
         return;
     }
     if cli.heartbeat {
         commands::system::handle_heartbeat(&cli);
+        stats::record("--heartbeat");
         return;
     }
     if cli.token_budget.is_some() {
         commands::budget::handle_token_budget(&cli);
+        stats::record("--token-budget");
         return;
     }
     if cli.onboarding {
         commands::onboarding::handle_onboarding(&cli);
+        stats::record("--onboarding");
+        return;
+    }
+    if cli.network {
+        commands::network::handle_network(&cli);
+        stats::record("--network");
+        return;
+    }
+    // === 本地埋点统计 ===
+    if cli.stats {
+        stats::print_stats();
+        return;
+    }
+    if cli.reset_stats {
+        stats::reset();
+        println!("📊 统计数据已清空");
         return;
     }
     if cli.can_run {

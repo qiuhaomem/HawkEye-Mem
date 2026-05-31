@@ -17,6 +17,7 @@ pub mod disk;
 pub mod gpu;
 pub mod linux;
 pub mod macos;
+pub mod network;
 pub mod registry;
 
 use serde::Serialize;
@@ -268,6 +269,7 @@ pub enum CollectorOutput {
     Gpu(Vec<GpuMetrics>),
     Thermal(ThermalMetrics),
     Agent(AgentDetection),
+    Network(self::network::NetworkMetrics),
 }
 
 // ============================================================================
@@ -296,6 +298,8 @@ pub struct ResourceSnapshot {
     pub thermal: Option<ThermalMetrics>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub agents: Option<AgentDetection>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub network: Option<self::network::NetworkMetrics>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub container_runtime: Option<String>,
     pub timestamp: String,

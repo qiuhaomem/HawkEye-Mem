@@ -15,5 +15,6 @@
 pub mod budget;
 pub mod cache;
 pub mod model;
+pub mod network;
 pub mod onboarding;
 pub mod system;

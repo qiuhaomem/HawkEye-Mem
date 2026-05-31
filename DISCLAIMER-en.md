@@ -218,6 +218,26 @@ V0.7 introduces the `--onboarding` capability overview feature. By using this fe
 
 ---
 
+## 12. V0.7.1 Network Bandwidth Detection and Local Data Instrumentation
+
+### 12.1 Network Bandwidth Detection (`--network`)
+
+- Data sources: `/proc/net/dev` and `/sys/class/net/` (Linux) or `ifconfig`/`netstat` (macOS)
+- Real-time traffic rate is calculated from the difference between two sampling points, not precise bandwidth measurement
+- Latency detection sends 1 ICMP packet with a 2-second timeout; reachability is not guaranteed
+- This feature is provided solely for system resource information display and does not constitute network quality monitoring or an SLA guarantee
+- Network status may change significantly between collection intervals
+
+### 12.2 Local Data Instrumentation (`--stats`)
+
+- Usage statistics are stored locally in `~/.config/hawk-eye-mem/usage_stats.json`
+- Only command names and call counts are recorded; no timestamps, command arguments, or user data are stored
+- All data is stored locally and is never uploaded to any remote server
+- Users can clear the data at any time via `--reset-stats`
+- Instrumentation data does not constitute user behavior analysis; it is used solely for feature popularity statistics
+
+---
+
 ## Summary
 
 **THE SOFTWARE PROVIDES MEMORY MONITORING INFORMATION AND BEHAVIORAL RECOMMENDATIONS BASED ON ESTIMATION MODELS. THESE OUTPUTS MAY CONTAIN ERRORS.**
