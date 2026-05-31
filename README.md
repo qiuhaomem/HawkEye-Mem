@@ -15,8 +15,8 @@
 [![CLI](https://img.shields.io/badge/CLI-✓-3fb950?style=flat-square)](https://github.com/qiuhaomem/HawkEye-Mem)
 [![MCP](https://img.shields.io/badge/MCP-✓-58a6ff?style=flat-square)](https://github.com/qiuhaomem/HawkEye-Mem)
 [![License](https://img.shields.io/badge/License-Apache--2.0-d29922?style=flat-square)](./LICENSE)
-[![Version](https://img.shields.io/badge/版本-v0.6.0-f0883e?style=flat-square)](https://github.com/qiuhaomem/HawkEye-Mem/releases)
-[![Tests](https://img.shields.io/badge/Tests-336_✓-3fb950?style=flat-square)](https://github.com/qiuhaomem/HawkEye-Mem)
+[![Version](https://img.shields.io/badge/版本-v0.7.0-f0883e?style=flat-square)](https://github.com/qiuhaomem/HawkEye-Mem/releases)
+[![Tests](https://img.shields.io/badge/Tests-336_✓-3fb950?style=flat-square)](https://github.com/qiuhaomem/HawkEye-Mem/actions)
 [![Linux](https://img.shields.io/badge/OS-Linux%20|%20macOS%20|%20Docker-8b949e?style=flat-square)]()
 
 <a href="https://github.com/qiuhaomem/HawkEye-Mem"><img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=18&duration=2500&pause=1000&color=58A6FF&center=true&vCenter=true&width=750&lines=%E7%A7%8B%E6%AF%ABmem+%E2%80%94+AI%E4%B8%87%E5%AF%BF%E4%B8%96%E7%95%8C%E7%9A%84%E2%80%9C%E5%86%85%E5%AD%98%E4%BC%A0%E6%84%9F%E5%99%A8%E2%80%9D;%E6%AF%8F%E6%AC%A1%E6%A3%80%E6%9F%A5+%3C+1%E6%AF%AB%E7%A7%92+%C2%B7+%E4%BA%8C%E8%BF%9B%E5%88%B6%E6%96%87%E4%BB%B6%3C1MB;%E6%94%AF%E6%8C%81+12+%E4%B8%AA+MCP+%E5%B7%A5%E5%85%B7+%C2%B7+Agent+%E5%86%B3%E7%AD%96%E5%BC%95%E6%93%8E" alt="Typing SVG" /></a>
@@ -211,6 +211,7 @@ hawk-eye-mem --json
 | v0.4.0 | — | 2026-05-22 | 环境指纹 + 远程采集 + 容器适配 + 趋势分析 |
 | v0.5.0 | 🎣 钓鱼行动 | 2026-05-26 | 缓存策略 + 成本报告 + 并发联动 |
 | v0.6.0 | 🎯 精准打击 | 2026-05-30 | 缓存差距分析 + 心跳 + Token 审计 |
+| v0.7.0 | 🦅 能力全景 | 2026-05-31 | 能力全景展示 `--onboarding` + macOS 发布 + 100 测试 |
 
 ### v0.6.0「精准打击」亮点
 
@@ -231,6 +232,24 @@ hawk-eye-mem --heartbeat
 ```
 
 **测试 336 全绿**——每个版本都从零开始跑全套，不欠技术债。
+
+### v0.7.0「🦅 能力全景」亮点
+
+**能力全景展示**——新用户一键展示秋毫mem所有亮点功能。
+
+```bash
+# CLI — 人类阅读的炫酷终端报告
+hawk-eye-mem --onboarding
+
+# MCP — Agent 调用的 JSON 全景数据
+# 工具名: run_onboarding_showcase（零参数）
+```
+
+`--onboarding` 输出聚合 7 大板块：系统体检 → 缓存策略 → Token 花销总览 → 趋势分析 → 并发建议 → GPU/Agent/环境 → Agent 决策指导。每个板块带 emoji 状态图标，**零 Token 消耗**。
+
+**多平台发布**——Linux (GNU + musl) + macOS (Apple Silicon) 三端覆盖。
+
+**100 项极限测试**——93 个测试用例 135 断言 100% 通过，`--onboarding` 单次仅 ~33ms。
 
 ---
 
@@ -268,7 +287,8 @@ hawk-eye-mem --init-config
 
 </div>
 
-- **2026/05/30** — v0.6.0「精准打击」：缓存差距分析 + 心跳模式 + Token 审计 + 336 测试全绿
+- **2026/05/31** — v0.7.0「🦅 能力全景」：能力全景展示 `--onboarding` + macOS 发布 + 100 极限测试
+- **2026/05/30** — v0.6.0「🎯 精准打击」：缓存差距分析 + 心跳模式 + Token 审计 + 336 测试全绿
 - **2026/05/26** — v0.5.0「🎣 钓鱼行动」：缓存策略 Hermes Skill + 成本报告 + 并发度联动
 - **2026/05/22** — v0.4.0：环境指纹 + 远程采集 HTTP 服务 + 容器适配 + 趋势分析
 - **2026/05/21** — v0.3.0：GPU 监控 + 温度检测 + 模型动态校准 + 状态机
