@@ -108,6 +108,99 @@ def hawk_result_field(data: dict, *keys: str) -> dict:
     return {"content": [{"type": "text", "text": json.dumps(extracted, indent=2)}]}
 
 
+# ==================== V0.7 能力全景展示 ====================
+
+def handle_onboarding_showcase() -> dict:
+    """运行秋毫mem 能力全景展示 — 聚合所有功能数据为一份完整 JSON"""
+    showcase = {
+        "showcase_version": "0.7.0",
+        "zero_token_cost": True,
+        "description": "秋毫mem 能力全景展示 — 所有数据均为本地采集，零 Token 消耗",
+        "sections": {},
+        "summary": {
+            "status": "ok",
+            "highlights": [],
+            "agent_action": "monitor",
+        }
+    }
+
+    # 1. 系统健康
+    sys_data = run_hawkeye(["--json"])
+    if "error" not in sys_data:
+        system = sys_data.get("system", {})
+        guidance = sys_data.get("agent_guidance", {})
+        showcase["sections"]["system_health"] = {
+            "memory": {
+                "total_mb": system.get("total_mb"),
+                "used_mb": system.get("used_mb"),
+                "available_mb": system.get("available_mb"),
+                "used_percent": system.get("used_percent"),
+            },
+            "cpu": system.get("cpu"),
+            "disk": system.get("disk"),
+            "thermal": system.get("thermal"),
+        }
+        if guidance:
+            showcase["sections"]["agent_guidance"] = guidance
+            showcase["summary"]["agent_action"] = guidance.get("action", "monitor")
+            p = guidance.get("pressure", "low")
+            if p == "low":
+                showcase["summary"]["status"] = "healthy"
+            elif p == "medium":
+                showcase["summary"]["status"] = "caution"
+            else:
+                showcase["summary"]["status"] = "critical"
+        showcase["summary"]["highlights"].append("系统健康检查完成 ✅")
+
+    # 2. 缓存策略
+    cache_data = run_hawkeye(["--cache-strategy", "--json"])
+    if "error" not in cache_data:
+        showcase["sections"]["cache_strategy"] = cache_data
+        mode = cache_data.get("mode", "?")
+        showcase["summary"]["highlights"].append(f"缓存策略: {mode} 🚀")
+
+    # 3. Token 花销 — 从 cache stats 获取缓存命中数据
+    cs_data = run_hawkeye(["--cache-stats"])
+    if "error" not in cs_data:
+        showcase["sections"]["token_budget"] = {
+            "note": "缓存命中统计（完整 Token 分析需编译 --features budget）",
+            "cache_stats": cs_data,
+        }
+        showcase["summary"]["highlights"].append(f"缓存命中率可用 📊")
+
+    # 4. 趋势分析
+    trend_data = run_hawkeye(["--trend"])
+    if "error" not in trend_data:
+        showcase["sections"]["trend_analysis"] = trend_data
+        direction = trend_data.get("direction", "stable")
+        showcase["summary"]["highlights"].append(f"资源趋势: {direction} 📈")
+
+    # 5. GPU
+    showcase["sections"]["gpu"] = sys_data.get("system", {}).get("gpu", []) if "error" not in sys_data else []
+
+    # 6. 同机 Agent
+    showcase["sections"]["agents"] = sys_data.get("system", {}).get("agents", {}) if "error" not in sys_data else {}
+
+    # 7. 环境指纹
+    fp_data = run_hawkeye(["--env-fingerprint"])
+    if "error" not in fp_data:
+        showcase["sections"]["environment_fingerprint"] = fp_data
+
+    # 8. 并发建议
+    concurrency_data = run_hawkeye(["--suggest-concurrency"])
+    if "error" not in concurrency_data:
+        showcase["sections"]["concurrency"] = concurrency_data
+        conc = concurrency_data.get("suggestion", {}).get("recommended_concurrency", 0)
+        showcase["summary"]["highlights"].append(f"安全并发: {conc} 🎯")
+
+    # 9. 心跳
+    hb_data = run_hawkeye(["--heartbeat"])
+    if "error" not in hb_data:
+        showcase["sections"]["heartbeat"] = hb_data
+
+    return {"content": [{"type": "text", "text": json.dumps(showcase, indent=2, ensure_ascii=False)}]}
+
+
 # ==================== MCP 协议实现 ====================
 
 def handle_initialize(params: dict) -> dict:
@@ -344,6 +437,16 @@ def handle_list_tools(params: dict) -> dict:
             {
                 "name": "get_heartbeat",
                 "description": "获取单行心跳JSON，包含系统压力、可用内存、建议操作和时间戳。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            },
+            # ======== V0.7 能力全景展示 ========
+            {
+                "name": "run_onboarding_showcase",
+                "description": "运行秋毫mem 能力全景展示 — 一次性获取所有系统状态、缓存策略、Token花销、趋势分析、并发建议、GPU/Agent、环境指纹、Agent指导。让Agent和用户一次性感知秋毫mem的全部能力。零Token消耗。",
                 "inputSchema": {
                     "type": "object",
                     "properties": {},
@@ -612,6 +715,9 @@ def handle_call_tool(params: dict) -> dict:
         if "error" in data:
             return {"content": [{"type": "text", "text": json.dumps(data)}], "isError": True}
         return {"content": [{"type": "text", "text": json.dumps(data, indent=2)}]}
+
+    elif name == "run_onboarding_showcase":
+        return handle_onboarding_showcase()
 
     else:
         return {

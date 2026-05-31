@@ -1,12 +1,13 @@
 [package]
 name = "hawk-eye-mem"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 description = "AI-Native memory monitoring CLI — let your Agent feel the RAM"
 
 [features]
 default = []
 gpu = ["nvml-wrapper"]
+budget = ["rusqlite", "serde_yaml"]
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
@@ -24,6 +25,9 @@ nvml-wrapper = { version = "0.9", optional = true }
 sha2 = "0.10"
 hex = "0.4"
 fs2 = "0.4"
+# === V0.6.1 Token 预算管家 ===
+serde_yaml = { version = "0.9", optional = true }
+rusqlite = { version = "0.31", optional = true, features = ["bundled"] }
 
 [dev-dependencies]
 tempfile = "3"

@@ -1,3 +1,4 @@
+mod budget;
 mod cache;
 mod calibration;
 mod collector;
@@ -53,7 +54,7 @@ analysis_days = 7
 #[derive(Parser)]
 #[command(
     name = "hawk-eye-mem",
-    version = "0.6.0",
+    version = "0.7.0",
     about = "AI-Native memory monitoring"
 )]
 pub struct Cli {
@@ -190,6 +191,24 @@ pub struct Cli {
     /// 输出单行心跳 JSON（pressure/available_mb/action/timestamp）
     #[arg(long)]
     heartbeat: bool,
+
+    // === V0.6.1 Token 预算管家 ===
+    /// Token 预算管家子命令（status/waste/suggest/apply）
+    #[arg(long)]
+    pub token_budget: Option<String>,
+
+    /// Token 预算管家子命令参数（如 apply 的 ID）
+    #[arg(long)]
+    pub token_budget_args: Option<String>,
+
+    /// 干运行模式（仅显示不执行）
+    #[arg(long)]
+    pub dry_run: bool,
+
+    // === V0.7 能力全景展示 ===
+    /// 秋毫mem 能力全景展示 — 一键展示所有亮点功能
+    #[arg(long)]
+    pub onboarding: bool,
 }
 
 fn main() {
@@ -259,6 +278,14 @@ fn main() {
     }
     if cli.heartbeat {
         commands::system::handle_heartbeat(&cli);
+        return;
+    }
+    if cli.token_budget.is_some() {
+        commands::budget::handle_token_budget(&cli);
+        return;
+    }
+    if cli.onboarding {
+        commands::onboarding::handle_onboarding(&cli);
         return;
     }
     if cli.can_run {

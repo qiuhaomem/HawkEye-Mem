@@ -156,8 +156,9 @@ hawk-eye-mem --json
 | **远程采集** | `hawk-eye-mem --serve --port 9240` | 一台机器采集，全集群拉取指标 |
 | **缓存差距分析** | `hawk-eye-mem --analyze-cache-gaps` | 命中率 97% 但目标是 99%？差的那 2% 去哪儿了 |
 | **单行心跳** | `hawk-eye-mem --heartbeat` | 一行 JSON，适合 cron 定时推送到监控系统 |
+| **能力全景** 🆕 | `hawk-eye-mem --onboarding` | 一键展示秋毫mem所有亮点——系统/缓存/Token/趋势/并发，震惊agent |
 
-### 🤖 MCP 工具列表（共 14 个）
+### 🤖 MCP 工具列表（共 15 个）
 
 注册为 Hermes MCP 后，你的 Agent 直接调用这些工具：
 
@@ -177,6 +178,7 @@ hawk-eye-mem --json
 | `get_cache_gaps_analysis` | 缓存差距分析——命中率 vs 目标 |
 | `get_heartbeat` | 单行心跳——一行 JSON，零啰嗦 |
 | `run_token_audit` | Token 审计——查 API 费都烧哪儿了 |
+| `run_onboarding_showcase` 🆕 | 能力全景——一站式获取系统/缓存/Token/趋势/并发/GPU/Agent/环境 全数据 |
 
 ---
 
