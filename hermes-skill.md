@@ -3,7 +3,7 @@ name: hawk-eye-mem
 description: "Use when you need to check system memory pressure, GPU status, CPU/GPU temperature, co-located AI Agent processes, environment fingerprint, remote node metrics, trend analysis, container/cgroup awareness, or estimate safe context window size for LLM inference. AI-Native system resource monitoring CLI (秋毫mem). V0.4 adds environment fingerprinting, remote HTTP server, trend analysis, container adaptation, and alert mode."
 version: 0.4.0
 author: 秋毫mem Team
-license: MIT
+license: Apache-2.0
 metadata:
   hermes:
     tags: [memory, monitoring, llm, system, mlops, gpu, thermal, agent-tools]

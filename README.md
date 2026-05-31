@@ -19,7 +19,7 @@
 [![Tests](https://img.shields.io/badge/Tests-336_✓-3fb950?style=flat-square)](https://github.com/qiuhaomem/HawkEye-Mem/actions)
 [![Linux](https://img.shields.io/badge/OS-Linux%20|%20macOS%20|%20Docker-8b949e?style=flat-square)]()
 
-<a href="https://github.com/qiuhaomem/HawkEye-Mem"><img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=18&duration=2500&pause=1000&color=58A6FF&center=true&vCenter=true&width=750&lines=%E7%A7%8B%E6%AF%ABmem+%E2%80%94+AI%E4%B8%87%E5%AF%BF%E4%B8%96%E7%95%8C%E7%9A%84%E2%80%9C%E5%86%85%E5%AD%98%E4%BC%A0%E6%84%9F%E5%99%A8%E2%80%9D;%E6%AF%8F%E6%AC%A1%E6%A3%80%E6%9F%A5+%3C+1%E6%AF%AB%E7%A7%92+%C2%B7+%E4%BA%8C%E8%BF%9B%E5%88%B6%E6%96%87%E4%BB%B6%3C1MB;%E6%94%AF%E6%8C%81+12+%E4%B8%AA+MCP+%E5%B7%A5%E5%85%B7+%C2%B7+Agent+%E5%86%B3%E7%AD%96%E5%BC%95%E6%93%8E" alt="Typing SVG" /></a>
+<a href="https://github.com/qiuhaomem/HawkEye-Mem"><img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=18&duration=2500&pause=1000&color=58A6FF&center=true&vCenter=true&width=750&lines=%E7%A7%8B%E6%AF%ABmem+%E2%80%94+AI%E4%B8%87%E5%AF%BF%E4%B8%96%E7%95%8C%E7%9A%84%E2%80%9C%E5%86%85%E5%AD%98%E4%BC%A0%E6%84%9F%E5%99%A8%E2%80%9D;%E6%AF%8F%E6%AC%A1%E6%A3%80%E6%9F%A5+%3C+1%E6%AF%AB%E7%A7%92+%C2%B7+%E4%BA%8C%E8%BF%9B%E5%88%B6%E6%96%87%E4%BB%B6%3C1MB;%E6%94%AF%E6%8C%81+15+%E4%B8%AA+MCP+%E5%B7%A5%E5%85%B7+%C2%B7+Agent+%E5%86%B3%E7%AD%96%E5%BC%95%E6%93%8E" alt="Typing SVG" /></a>
 
 </div>
 

@@ -184,6 +184,40 @@ By using cache strategy auto-adjustment, you accept that:
 
 ---
 
+## 11. V0.6 and V0.7 New Features Special Provisions
+
+### 11.1 Cache Gap Analysis (`--analyze-cache-gaps`)
+
+V0.6 introduces the `--analyze-cache-gaps` cache gap analysis feature. By using this feature, you acknowledge and agree to the following limitations:
+
+1. **Statistical Estimation**: Cache gap analysis results are based on statistical estimation, not precise analysis. Actual cache hit rates may differ from analysis results due to various factors.
+2. **Sampling Dependence**: The accuracy of analysis results is affected by the data sampling period and data volume. Shorter sampling periods and larger data volumes yield more representative results; the converse may reduce representativeness.
+
+### 11.2 Heartbeat Mode (`--heartbeat`)
+
+V0.6 introduces the `--heartbeat` heartbeat mode. By using this feature, you acknowledge and agree to the following limitations:
+
+1. **Single Snapshot**: Heartbeat mode provides a one-time snapshot of system state and does not constitute continuous monitoring. State changes that occur between collection intervals will not be detected.
+2. **Real-Time Limitations**: Heartbeat output does not represent the system state one second later. System resources may change significantly in a short period.
+
+### 11.3 Token Audit (`--token-budget`)
+
+V0.6 introduces the `--token-budget` token audit feature. By using this feature, you acknowledge and agree to the following limitations:
+
+1. **Data Sources**: Token audit data is sourced from Hermes state.db and agent.log local files. Audit results depend on the data integrity of these local files.
+2. **Approximate Values**: Token consumption figures output by the audit are approximate values, not precise billing. Actual API charges may differ due to billing policies, cache hits, free credits, and other factors.
+3. **Local Processing**: Token audit does not involve network transmission. All data is processed locally. We do not collect or upload your audit data.
+
+### 11.4 Capability Overview (`--onboarding`)
+
+V0.7 introduces the `--onboarding` capability overview feature. By using this feature, you acknowledge and agree to the following limitations:
+
+1. **Token Spending Data**: Token spending data output by `--onboarding` is sourced from local session records, not official billing invoices. This data is for reference only and should not be used for precise API cost accounting.
+2. **Cache Savings Are Estimates**: Cache savings shown are estimates. Actual savings may differ due to cache strategy, model version, API provider, and other factors.
+3. **Display Purposes Only**: The output information of the capability overview is for display and reference purposes only and does not constitute a guarantee of system capabilities or performance.
+
+---
+
 ## Summary
 
 **THE SOFTWARE PROVIDES MEMORY MONITORING INFORMATION AND BEHAVIORAL RECOMMENDATIONS BASED ON ESTIMATION MODELS. THESE OUTPUTS MAY CONTAIN ERRORS.**

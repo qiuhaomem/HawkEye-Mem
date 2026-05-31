@@ -56,6 +56,20 @@ cargo run -- --json
 - 平台特定代码使用 `#[cfg(target_os = "...")]` 条件编译
 - `#[cfg_attr(not(target_os = "..."), allow(dead_code))]` 处理跨平台死代码警告
 
+## 开发者原创证书（DCO）
+
+本项目要求所有贡献者在提交时添加 `Signed-off-by` 行，以确认您同意 [Developer Certificate of Origin](https://developercertificate.org/)：
+
+```
+Signed-off-by: Your Name <your.email@example.com>
+```
+
+您可以通过 `git commit -s` 自动添加该行。这表示您证明：
+
+- 该贡献是您原创的，或您有权将其提交到本项目
+- 您理解该贡献将以 [Apache-2.0](./LICENSE) 协议授权
+- 您同意在出现版权争议时承担相应责任
+
 ## 许可证
 
 贡献即代表您同意将代码以 [Apache-2.0](./LICENSE) 协议授权。
