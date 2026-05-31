@@ -28,6 +28,8 @@ jobs:
 
       - name: Build release
         run: cargo build --release
+        env:
+          RUSTFLAGS: ""
 
       - name: Verify binary
         run: |
@@ -64,6 +66,7 @@ jobs:
         run: cargo build --release --target x86_64-unknown-linux-musl
         env:
           CARGO_HOME: ${{ runner.temp }}/cargo-home
+          RUSTFLAGS: ""
 
       - name: Verify static linking
         run: |
