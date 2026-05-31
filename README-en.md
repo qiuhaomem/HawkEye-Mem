@@ -15,11 +15,11 @@
 [![CLI](https://img.shields.io/badge/CLI-✓-3fb950?style=flat-square)](https://github.com/qiuhaomem/HawkEye-Mem)
 [![MCP](https://img.shields.io/badge/MCP-✓-58a6ff?style=flat-square)](https://github.com/qiuhaomem/HawkEye-Mem)
 [![License](https://img.shields.io/badge/License-Apache--2.0-d29922?style=flat-square)](./LICENSE)
-[![Version](https://img.shields.io/badge/Version-v0.6.0-f0883e?style=flat-square)](https://github.com/qiuhaomem/HawkEye-Mem/releases)
-[![Tests](https://img.shields.io/badge/Tests-336_✓-3fb950?style=flat-square)](https://github.com/qiuhaomem/HawkEye-Mem)
+[![Version](https://img.shields.io/badge/Version-v0.7.0-f0883e?style=flat-square)](https://github.com/qiuhaomem/HawkEye-Mem/releases)
+[![Tests](https://img.shields.io/badge/Tests-336_✓-3fb950?style=flat-square)](https://github.com/qiuhaomem/HawkEye-Mem/actions)
 [![OS](https://img.shields.io/badge/OS-Linux%20|%20macOS%20|%20Docker-8b949e?style=flat-square)]()
 
-<a href="https://github.com/qiuhaomem/HawkEye-Mem"><img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=18&duration=2500&pause=1000&color=58A6FF&center=true&vCenter=true&width=750&lines=HawkEye+Mem+%E2%80%94+AI-Agent+Memory+Sensor;%3C1ms+per+check+%C2%B7+Binary+%3C1MB;12+MCP+Tools+%C2%B7+Agent+Decision+Engine+Ready" alt="Typing SVG" /></a>
+<a href="https://github.com/qiuhaomem/HawkEye-Mem"><img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=18&duration=2500&pause=1000&color=58A6FF&center=true&vCenter=true&width=750&lines=HawkEye+Mem+%E2%80%94+AI-Agent+Memory+Sensor;%3C1ms+per+check+%C2%B7+Binary+%3C1MB;15+MCP+Tools+%C2%B7+Agent+Decision+Engine+Ready" alt="Typing SVG" /></a>
 
 </div>
 
@@ -108,7 +108,7 @@ hawk-eye-mem --json
 hermes mcp add hawk-eye-mem --command python3 --args scripts/hawkeye-mcp-server.py
 ```
 
-12 tools appear instantly. Your agent can ask "got enough memory?" before every heavy task.
+15 tools appear instantly. Your agent can ask "got enough memory?" before every heavy task.
 
 **Using another framework** — shell out:
 
@@ -142,8 +142,9 @@ hawk-eye-mem --json | jq '.agent_guidance.action'
 | **Remote collection** | `hawk-eye-mem --serve --port 9240` | One machine serves, fleet pulls |
 | **Cache gap analysis** | `hawk-eye-mem --analyze-cache-gaps` | 97% hit rate but targeting 99%? Find the gap |
 | **Heartbeat** | `hawk-eye-mem --heartbeat` | One-line JSON — cron-ready, alert-friendly |
+| **Showcase** 🆕 | `hawk-eye-mem --onboarding` | One command to show ALL features — system/cache/tokens/trends/concurrency, blows agent's mind |
 
-### 🤖 MCP Tools (14 total)
+### 🤖 MCP Tools (15 total)
 
 Register with Hermes and your agent gains these abilities:
 
@@ -163,6 +164,7 @@ Register with Hermes and your agent gains these abilities:
 | `get_cache_gaps_analysis` | Cache gap analysis — hit rate vs target |
 | `get_heartbeat` | One-line heartbeat JSON |
 | `run_token_audit` | Token spend audit — where's the API budget going? |
+| `run_onboarding_showcase` 🆕 | One-shot showcase — system/cache/tokens/trends/concurrency/GPU/Agent/env all in one JSON |
 
 ---
 
@@ -195,6 +197,7 @@ Register with Hermes and your agent gains these abilities:
 | v0.4.0 | — | 2026-05-22 | Env fingerprint + remote serve + container aware + trend |
 | v0.5.0 | 🎣 Operation Fishing | 2026-05-26 | Cache strategy + cost report + concurrency |
 | v0.6.0 | 🎯 Precision Strike | 2026-05-30 | Cache gap analysis + heartbeat + token audit |
+| v0.7.0 | 🦅 Showcase | 2026-05-31 | `--onboarding` showcase + macOS release + 100 limit tests |
 
 ### v0.6.0「Precision Strike」Highlights
 
@@ -214,6 +217,24 @@ hawk-eye-mem --heartbeat
 ```
 
 **336 tests, all green** — every version runs the full suite. No technical debt.
+
+### v0.7.0「🦅 Showcase」Highlights
+
+**Onboarding Showcase** — New users can see ALL features in one command.
+
+```bash
+# CLI — a stunning terminal report for humans
+hawk-eye-mem --onboarding
+
+# MCP — full JSON data for agents
+# Tool: run_onboarding_showcase (zero parameters)
+```
+
+`--onboarding` output aggregates 7 major sections: System Checkup → Cache Strategy → Token Spend Overview → Trend Analysis → Concurrency Advice → GPU/Agent/Environment → Agent Decision Guidance. Each section has emoji status icons, **zero token cost**.
+
+**Multi-platform release** — Linux (GNU + musl) + macOS (Apple Silicon) across all three targets.
+
+**100 limit tests** — 93 test cases, 135 assertions, 100% pass, `--onboarding` completes in ~33ms.
 
 ---
 
@@ -251,6 +272,7 @@ Each check takes under **1ms**. The binary is under **1MB**. Your agent won't ev
 
 </div>
 
+- **2026/05/31** — v0.7.0「🦅 Showcase」: `--onboarding` showcase + macOS release + 100 limit tests
 - **2026/05/30** — v0.6.0「Precision Strike」: Cache gap analysis + heartbeat + token audit + 336 tests green
 - **2026/05/26** — v0.5.0「🎣 Operation Fishing」: Cache strategy Hermes Skill + cost report + concurrency coupling
 - **2026/05/22** — v0.4.0: Environment fingerprint + remote HTTP serve + container aware + trend analysis
@@ -266,7 +288,7 @@ Each check takes under **1ms**. The binary is under **1MB**. Your agent won't ev
 
 </div>
 
-v0.6 is the product of continuous iteration. Tried cache gap analysis or heartbeat mode? [Let us know](https://github.com/qiuhaomem/HawkEye-Mem/issues/1) — was it accurate? Did it help?
+v0.7 is the product of continuous iteration. Tried the onboarding showcase? [Let us know](https://github.com/qiuhaomem/HawkEye-Mem/issues/1) — was it helpful? Did you discover something new?
 
 Every piece of feedback directly shapes the next version's features.
 
