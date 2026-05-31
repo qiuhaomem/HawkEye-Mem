@@ -1,7 +1,7 @@
-# 秋毫mem · Linux 发布构建
-# 只编译 Linux GNU + musl，跑通后上传到 Release
+# 秋毫mem · 多平台发布构建
+# 编译 Linux (GNU + musl) + macOS (Apple Silicon)，上传到 Release
 
-name: Release Linux
+name: Release
 
 on:
   workflow_dispatch:
@@ -93,6 +93,8 @@ jobs:
 
       - name: Build release (Apple Silicon, with budget feature)
         run: cargo build --release --features budget
+        env:
+          RUSTFLAGS: ""
 
       - name: Verify binary
         run: |
